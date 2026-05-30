@@ -1,0 +1,13 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+    <Bundle Id="WixToolsetTest.TestBundle" Name="BundleMissingMsiSource"
+            Version="1.0.0.0" Manufacturer="Example Corporation">
+        <BootstrapperApplication SourceFile="fakeba.dll" />
+
+        <Chain>
+            <MsiPackage
+               Id="MsiPackage1"
+               DisplayName="Msi Package #1"
+               DownloadUrl="http://example.com/test.msi" />
+        </Chain>
+    </Bundle>
+</Wix>

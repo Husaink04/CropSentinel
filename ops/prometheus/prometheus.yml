@@ -1,0 +1,13 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: cropsentinel-backend
+    metrics_path: /_internal/metrics
+    static_configs:
+      - targets:
+          - backend:8000
+    authorization:
+      type: Bearer
+      credentials: metrics-dev-token

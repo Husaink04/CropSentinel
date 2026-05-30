@@ -1,0 +1,15 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Id="WixToolsetTest.TestPackage"
+           Version="1"
+           Name="MsiPackage"
+           Manufacturer="Example Corporation"
+           Scope="perUserOrMachine">
+    <MajorUpgrade DowngradeErrorMessage="Downgrade not allowed" />
+
+    <Feature Id="ProductFeature" Title="Feature title">
+        <Component>
+            <File Source="PerUser.wxs" />
+        </Component>
+    </Feature>
+  </Package>
+</Wix>

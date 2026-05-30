@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.Build.Traversal">
+  <ItemGroup>
+    <ProjectReference Include="WixToolset.WcaUtil\wcautil.vcxproj" Properties="Platform=x86" />
+    <ProjectReference Include="WixToolset.WcaUtil\wcautil.vcxproj" Properties="Platform=x64" />
+    <ProjectReference Include="WixToolset.WcaUtil\wcautil.vcxproj" Properties="Platform=ARM64" />
+
+    <ProjectReference Include="WixToolset.WcaUtil\wcautil.vcxproj" Targets="PackNative" />
+  </ItemGroup>
+</Project>

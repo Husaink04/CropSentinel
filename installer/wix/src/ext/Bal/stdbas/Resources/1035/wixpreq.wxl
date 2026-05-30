@@ -1,0 +1,29 @@
+﻿<!-- Copyright (c) .NET Foundation and contributors. All rights reserved. Licensed under the Microsoft Reciprocal License. See LICENSE.TXT file in the project root for full license information. -->
+
+
+<WixLocalization Culture="fi-fi" Language="1035" xmlns="http://wixtoolset.org/schemas/v4/wxl">
+  <String Id="Caption" Value="[WixBundleName] -asennus" />
+  <String Id="Title" Value="Microsoft .NET Framework tarvitaan [WixBundleName] -asennusta varten" />
+  <String Id="ConfirmCancelMessage" Value="Haluatko varmasti peruuttaa?" />
+  <String Id="HelpHeader" Value="Asennusohjelman ohje" />
+  <String Id="HelpText" Value="/passive | /quiet -  näyttää mahdollisimman vähän käyttöliittymästä; ei&#xA;   kehotteita tai ei käyttöliittymää ja kehotteita. Oletusarvoisesti&#xA;   käyttöliittymä ja kaikki kehotteet näytetään.&#xA;&#xA;/norestart   - estää uudelleenkäynnistysyritykset. Oletusarvoisesti&#xA;   käyttöliittymä kysyy ennen uudelleenkäynnistystä.&#xA;/log loki.txt - kirjaa lokitiedot erityiseen tiedostoon. Oletusarvoisesti&#xA;   lokitiedosto luodaan %TEMP%-kansioon." />
+  <String Id="HelpCloseButton" Value="&amp;Sulje" />
+  <String Id="InstallLicenseTerms" Value="Hyväksy Microsoft .NET Framework -ohjelman &lt;a href=&quot;#&quot;&gt;käyttöoikeusehdot&lt;/a&gt; valitsemalla Hyväksy ja asenna." />
+  <String Id="InstallAcceptAndInstallButton" Value="&amp;Hyväksy ja asenna" />
+  <String Id="InstallDeclineButton" Value="&amp;Hylkää" />
+  <String Id="ProgressHeader" Value="Asennuksen edistyminen" />
+  <String Id="ProgressLabel" Value="Käsitellään:" />
+  <String Id="ProgressCancelButton" Value="&amp;Peruuta" />
+  <String Id="SuccessHeader" Value="Microsoft .NET Framework Setup Successful" />
+  <String Id="SuccessRestartText" Value="You must restart your computer before [WixBundleName] setup can continue." />
+  <String Id="SuccessRestartButton" Value="&amp;Restart" />
+  <String Id="SuccessCloseButton" Value="&amp;Close" />
+  <String Id="FailureHeader" Value="Asennus epäonnistui" />
+  <String Id="FailureLogLinkText" Value="Asennus epäonnistui yhdestä tai useammasta syystä. Korjaa ongelmat ja yritä suorittaa asennus sitten uudelleen. Lisätietoja on &lt;a href=&quot;#&quot;&gt;lokitiedostossa&lt;/a&gt;." />
+  <String Id="FailureRestartText" Value="Tietokone täytyy käynnistää uudelleen ohjelmiston palautuksen viimeistelemiseksi." />
+  <String Id="FailureRestartButton" Value="&amp;Käynnistä uudelleen" />
+  <String Id="FailureCloseButton" Value="&amp;Sulje" />
+  <String Id="NET452WIN7RTMErrorMessage" Value="[WixBundleName] cannot run on Windows 7 RTM with .NET 4.5.2 installed. Install Windows 7 SP1 to run in a supported environment." />
+  <String Id="PREREQBAINFINITELOOPErrorMessage" Value="[WixBundleName] failed to load the .NET Framework runtime even though all of the prerequisites are installed." />
+  <String Id="ErrorFailNoActionReboot" Value="No action was taken as a system reboot is required." />
+</WixLocalization>

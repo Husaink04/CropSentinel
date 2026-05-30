@@ -1,0 +1,16 @@
+﻿<!-- Copyright (c) .NET Foundation and contributors. All rights reserved. Licensed under the Microsoft Reciprocal License. See LICENSE.TXT file in the project root for full license information. -->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Fragment>
+    <PayloadGroup Id="TestExePayloads">
+      <ExePackagePayload SourceFile="!(bindpath.net2x86)\TestExe.exe" />
+      <Payload SourceFile="!(bindpath.net2x86)\TestExe.exe.config" />
+    </PayloadGroup>
+  </Fragment>
+
+  <Fragment>
+    <Component Id="TestExeComponent" Directory="INSTALLFOLDER">
+      <File Source="!(bindpath.net2x86)\TestExe.exe" KeyPath="yes" />
+      <File Source="!(bindpath.net2x86)\TestExe.exe.config" />
+    </Component>
+  </Fragment>
+</Wix>

@@ -1,0 +1,38 @@
+<!-- Copyright (c) .NET Foundation and contributors. All rights reserved. Licensed under the Microsoft Reciprocal License. See LICENSE.TXT file in the project root for full license information. -->
+
+<Project>
+  <PropertyGroup>
+    <CreateDocumentation Condition=" '$(CreateDocumentationFile)'!='true' ">false</CreateDocumentation>
+    <DocumentationFile Condition=" '$(CreateDocumentationFile)'=='true' ">$(OutputPath)\$(AssemblyName).xml</DocumentationFile>
+    <DefineConstants Condition=" '$(Configuration)'=='Debug' ">$(DefineConstants);DEBUG</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(IsWixTestProject)'=='true' OR '$(IsWixMSTestProject)'=='true' ">
+    <RollForward>Major</RollForward>
+    <IsPackable>false</IsPackable>
+    <SignOutput>false</SignOutput>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(IsWixMSTestProject)' == 'true' ">
+    <!-- Force a .NET v6-compatible package. -->
+    <MicrosoftTestingExtensionsCodeCoverageVersion>17.11.5</MicrosoftTestingExtensionsCodeCoverageVersion>
+    <TestingPlatformShowTestsFailure>true</TestingPlatformShowTestsFailure>
+  </PropertyGroup>
+
+  <ItemGroup Condition=" '$(IsWixTestProject)'!='true' ">
+    <Content Include="$(PackageEulaSource)" Pack="true" PackagePath="/" />
+    <Content Include="$(PackageIconSource)" Pack="true" PackagePath="/" />
+    <Content Include="$(PackageLicenseAcceptanceTargets)" Pack="true" PackagePath="build/$(MSBuildProjectName).targets"
+             Condition=" '$(IsWixExtension)' != 'true' " />
+  </ItemGroup>
+
+  <ItemGroup Condition=" '$(IsWixTestProject)'=='true' ">
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup Condition=" '$(IsWixTestProject)'!='true' ">
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+  </ItemGroup>
+</Project>

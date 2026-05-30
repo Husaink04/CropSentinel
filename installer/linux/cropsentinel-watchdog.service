@@ -1,0 +1,17 @@
+[Unit]
+Description=CropSentinel Linux Watchdog
+After=network-online.target cropsentinel-agent.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=__INSTALL_DIR__/app
+EnvironmentFile=__CONFIG_FILE__
+ExecStart=__INSTALL_DIR__/.venv/bin/python "__INSTALL_DIR__/app/watchdog.py"
+Restart=always
+RestartSec=30
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

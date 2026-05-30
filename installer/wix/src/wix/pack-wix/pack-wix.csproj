@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (c) .NET Foundation and contributors. All rights reserved. Licensed under the Microsoft Reciprocal License. See LICENSE.TXT file in the project root for full license information. -->
+
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <Title>The WiX Toolset command-line interface.</Title>
+    <Description>The WiX Toolset lets developers create installers for Windows. This package contains the WiX Toolset command-line interface.</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageId>wix</PackageId>
+    <NuspecBasePath>$(OutputPath)publish\wix\</NuspecBasePath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+</Project>

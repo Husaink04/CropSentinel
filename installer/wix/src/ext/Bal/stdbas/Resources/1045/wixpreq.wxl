@@ -1,0 +1,29 @@
+﻿<!-- Copyright (c) .NET Foundation and contributors. All rights reserved. Licensed under the Microsoft Reciprocal License. See LICENSE.TXT file in the project root for full license information. -->
+
+
+<WixLocalization Culture="pl-pl" Language="1045" xmlns="http://wixtoolset.org/schemas/v4/wxl">
+  <String Id="Caption" Value="Instalator programu [WixBundleName]" />
+  <String Id="Title" Value="Do zainstalowania programu [WixBundleName] jest wymagany program Microsoft .NET Framework" />
+  <String Id="ConfirmCancelMessage" Value="Czy na pewno chcesz anulować?" />
+  <String Id="HelpHeader" Value="Pomoc instalatora" />
+  <String Id="HelpText" Value="/passive | /quiet -  wyświetla minimalny interfejs użytkownika bez monitów&#xA;   lub nie wyświetla interfejsu użytkownika ani monitów. Domyślnie jest&#xA;   wyświetlany interfejs  użytkownika i wszystkie monity.&#xA;&#xA;/norestart   - pomija wszelkie próby ponownego uruchomienia. Domyślnie&#xA;   interfejs użytkownika będzie wyświetlał monit przed ponownym uruchomieniem.&#xA;/log log.txt - zapisuje wpisy dziennika do określonego pliku.&#xA;   Domyślnie plik dziennika jest tworzony w folderze %TEMP%." />
+  <String Id="HelpCloseButton" Value="&amp;Zamknij" />
+  <String Id="InstallLicenseTerms" Value="Kliknij przycisk Zaakceptuj i zainstaluj, aby zaakceptować &lt;a href=&quot;#&quot;&gt;warunki licencji&lt;/a&gt; programu Microsoft .NET Framework." />
+  <String Id="InstallAcceptAndInstallButton" Value="&amp;Zaakceptuj i zainstaluj" />
+  <String Id="InstallDeclineButton" Value="&amp;Odrzuć" />
+  <String Id="ProgressHeader" Value="Postęp instalacji" />
+  <String Id="ProgressLabel" Value="Trwa przetwarzanie:" />
+  <String Id="ProgressCancelButton" Value="&amp;Anuluj" />
+  <String Id="SuccessHeader" Value="Microsoft .NET Framework Setup Successful" />
+  <String Id="SuccessRestartText" Value="You must restart your computer before [WixBundleName] setup can continue." />
+  <String Id="SuccessRestartButton" Value="&amp;Restart" />
+  <String Id="SuccessCloseButton" Value="&amp;Close" />
+  <String Id="FailureHeader" Value="Instalacja nie powiodła się" />
+  <String Id="FailureLogLinkText" Value="Co najmniej jeden problem spowodował niepowodzenie instalacji. Usuń problemy, a następnie ponów próbę instalacji. Aby uzyskać więcej informacji można znaleźć w &lt;a href=&quot;#&quot;&gt;pliku dziennika&lt;/a&gt;." />
+  <String Id="FailureRestartText" Value="Aby zakończyć wycofywanie oprogramowania, musisz ponownie uruchomić komputer." />
+  <String Id="FailureRestartButton" Value="&amp;Uruchom ponownie" />
+  <String Id="FailureCloseButton" Value="&amp;Zamknij" />
+  <String Id="NET452WIN7RTMErrorMessage" Value="[WixBundleName] cannot run on Windows 7 RTM with .NET 4.5.2 installed. Install Windows 7 SP1 to run in a supported environment." />
+  <String Id="PREREQBAINFINITELOOPErrorMessage" Value="[WixBundleName] failed to load the .NET Framework runtime even though all of the prerequisites are installed." />
+  <String Id="ErrorFailNoActionReboot" Value="No action was taken as a system reboot is required." />
+</WixLocalization>

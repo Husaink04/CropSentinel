@@ -1,0 +1,10 @@
+﻿<!-- Copyright (c) .NET Foundation and contributors. All rights reserved. Licensed under the Microsoft Reciprocal License. See LICENSE.TXT file in the project root for full license information. -->
+
+
+<Include xmlns="http://wixtoolset.org/schemas/v4/wxs">
+    <?include ..\..\caDecor.wxi ?>
+
+    <Fragment>
+        <BootstrapperExtension Id="$(var.Prefix)UtilBootstrapperExtension$(var.Suffix)" SourceFile="!(bindpath.utilbe.$(var.platform))utilbe.dll" Name="$(var.Prefix)UtilBootstrapperExtension$(var.Suffix)\utilbe.dll" />
+    </Fragment>
+</Include>

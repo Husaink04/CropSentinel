@@ -1,0 +1,19 @@
+<!-- Copyright (c) .NET Foundation and contributors. All rights reserved. Licensed under the Microsoft Reciprocal License. See LICENSE.TXT file in the project root for full license information. -->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:bal="http://wixtoolset.org/schemas/v4/wxs/bal" xmlns:netfx="http://wixtoolset.org/schemas/v4/wxs/netfx">
+  <Fragment>
+    <BootstrapperApplication SourceFile="!(bindpath.dncx64)\WixToolset.WixBA.exe">
+      <Payload SourceFile="!(bindpath.dncx64)\WixToolset.WixBA.deps.json" />
+      <Payload SourceFile="!(bindpath.dncx64)\WixToolset.WixBA.dll" />
+      <Payload SourceFile="!(bindpath.dncx64)\WixToolset.WixBA.runtimeconfig.json" />
+      <Payload SourceFile="!(bindpath.dncx64)\mbanative.dll" />
+      <Payload SourceFile="!(bindpath.dncx64)\WixToolset.BootstrapperApplicationApi.dll" />
+      <Payload SourceFile='..\..\..\..\..\..\License.txt' />
+    </BootstrapperApplication>
+
+    <PackageGroup Id="WixBAdnc_x64">
+      <PackageGroupRef Id="DesktopNetCoreRuntime609Redist_x64AsPrereq" />
+    </PackageGroup>
+
+    <netfx:DotNetCoreSdkSearchRef Id="DOTNETCORESDK6_x64" />
+  </Fragment>
+</Wix>

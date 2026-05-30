@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (c) .NET Foundation and contributors. All rights reserved. Licensed under the Microsoft Reciprocal License. See LICENSE.TXT file in the project root for full license information. -->
+
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <IsWixTestProject>true</IsWixTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="TestData\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\WixToolset.Converters.Symbolizer\WixToolset.Converters.Symbolizer.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WixToolset.Data" />
+    <PackageReference Include="WixInternal.TestSupport" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="wix" HintPath="..\..\deps\wix.dll" />
+  </ItemGroup>
+</Project>

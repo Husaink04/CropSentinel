@@ -1,0 +1,131 @@
+name: Windows Agent MSI
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-windows-agent:
+    runs-on: windows-latest
+
+    env:
+      PYTHON_VERSION: "3.11"
+      CODESIGN_CERT_BASE64: ${{ secrets.WINDOWS_CODESIGN_CERT_BASE64 }}
+      CODESIGN_CERT_PASSWORD: ${{ secrets.WINDOWS_CODESIGN_CERT_PASSWORD }}
+
+    steps:
+      - name: Check out latest code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install Python build dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          if (Test-Path "agent\requirements.txt") {
+            pip install -r agent\requirements.txt
+          }
+          pip install pyinstaller pillow
+
+      - name: Install WiX Toolset
+        shell: pwsh
+        run: choco install wixtoolset --yes --no-progress
+
+      - name: Build Windows setup EXE
+        shell: pwsh
+        working-directory: installer
+        run: .\build.ps1
+
+      - name: Build MSI wrapper
+        shell: pwsh
+        working-directory: installer
+        run: .\build-msi.ps1
+
+      - name: Locate MSI artifact
+        id: locate_msi
+        shell: pwsh
+        run: |
+          $msi = Get-ChildItem -Path "installer\dist\msi" -Filter "cropsentinel-agent-*.msi" |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+          if (-not $msi) {
+            throw "MSI artifact was not generated."
+          }
+          "msi_path=$($msi.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Sign MSI
+        if: ${{ env.CODESIGN_CERT_BASE64 != '' && env.CODESIGN_CERT_PASSWORD != '' }}
+        shell: pwsh
+        run: |
+          .\installer\sign-artifact.ps1 `
+            -ArtifactPath "${{ steps.locate_msi.outputs.msi_path }}" `
+            -CertificateBase64 "${{ env.CODESIGN_CERT_BASE64 }}" `
+            -CertificatePassword "${{ env.CODESIGN_CERT_PASSWORD }}"
+
+      - name: Skip signing when certificate is missing
+        if: ${{ env.CODESIGN_CERT_BASE64 == '' || env.CODESIGN_CERT_PASSWORD == '' }}
+        shell: pwsh
+        run: Write-Host "Skipping MSI signing because signing secrets are not configured."
+
+      - name: Sync signed MSI into portal installers
+        shell: pwsh
+        run: |
+          $portalDir = Join-Path $PWD "backend\dist\installers"
+          New-Item -ItemType Directory -Force -Path $portalDir | Out-Null
+          Copy-Item "${{ steps.locate_msi.outputs.msi_path }}" -Destination $portalDir -Force
+
+      - name: Validate portal installer directory
+        shell: pwsh
+        run: |
+          $portalDir = Join-Path $PWD "backend\dist\installers"
+          $expected = @(
+            "cropsentinel-agent-*-setup.exe",
+            "cropsentinel-agent-*-windows.zip",
+            "cropsentinel-agent-*.msi"
+          )
+          foreach ($pattern in $expected) {
+            if (-not (Get-ChildItem -Path $portalDir -Filter $pattern -ErrorAction SilentlyContinue | Select-Object -First 1)) {
+              throw "Missing expected portal artifact pattern: $pattern"
+            }
+          }
+
+      - name: Upload portal Windows installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-agent-portal-installers
+          path: |
+            backend/dist/installers/cropsentinel-agent-*-setup.exe
+            backend/dist/installers/cropsentinel-agent-*-windows.zip
+            backend/dist/installers/cropsentinel-agent-*.msi
+
+  deploy-to-kali:
+    needs: build-windows-agent
+    runs-on: [self-hosted, Linux, X64, cropsentinel]
+
+    steps:
+      - name: Download portal Windows installers
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-agent-portal-installers
+          path: /tmp/windows-agent-portal-installers
+
+      - name: Copy installers into portal directory
+        run: |
+          mkdir -p /opt/CropSentinel/backend/dist/installers
+          cp -f /tmp/windows-agent-portal-installers/* /opt/CropSentinel/backend/dist/installers/
+          find /opt/CropSentinel/backend/dist/installers -maxdepth 1 -type f -name 'cropsentinel-agent-*' -exec chmod 644 {} \;
+          ls -lh /opt/CropSentinel/backend/dist/installers/
+
+      - name: Restart backend if using Docker Compose
+        run: |
+          cd /opt/CropSentinel
+          if command -v docker >/dev/null 2>&1; then
+            docker compose restart backend || true
+          fi

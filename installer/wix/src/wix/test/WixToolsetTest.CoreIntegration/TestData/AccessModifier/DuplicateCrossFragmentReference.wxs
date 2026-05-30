@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+    <Package Id="WixToolsetTest.Duplicate.Cross.Fragment.Reference" Name="Duplicate Cross Fragment Reference" Version="1.0.0.0" Manufacturer="Example Corporation">
+        <DirectoryRef Id="TestFolder" />
+    </Package>
+
+    <Fragment>
+        <Directory Id="TestFolder" Name="Dupe 1" />
+    </Fragment>
+
+    <Fragment>
+        <Directory Id="TestFolder" Name="Dupe 2" />
+    </Fragment>
+
+    <Fragment>
+        <Directory Id="TestFolder" Name="Dupe 3" />
+    </Fragment>
+</Wix>

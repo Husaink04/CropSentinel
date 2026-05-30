@@ -1,0 +1,11 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Bundle Id="WixToolsetTest.TestBundle" Name="BundlePackageBundle" Version="1.0.1.0" Manufacturer="Example Corporation" Compressed="no">
+    <BootstrapperApplication>
+      <BootstrapperApplicationDll SourceFile="fakeba.dll" />
+    </BootstrapperApplication>
+
+    <Chain>
+      <ExePackage SourceFile="burn.exe" DetectCondition="fake" UninstallArguments="-u fake" />
+    </Chain>
+  </Bundle>
+</Wix>

@@ -1,0 +1,29 @@
+﻿<!-- Copyright (c) .NET Foundation and contributors. All rights reserved. Licensed under the Microsoft Reciprocal License. See LICENSE.TXT file in the project root for full license information. -->
+
+
+<WixLocalization Culture="cs-cz" Language="1029" xmlns="http://wixtoolset.org/schemas/v4/wxl">
+  <String Id="Caption" Value="Instalace produktu [WixBundleName]" />
+  <String Id="Title" Value="Pro instalaci produktu [WixBundleName] je vyžadováno rozhraní Microsoft .NET Framework." />
+  <String Id="ConfirmCancelMessage" Value="Opravdu chcete akci zrušit?" />
+  <String Id="HelpHeader" Value="Nápověda k instalaci" />
+  <String Id="HelpText" Value="/passive | /quiet -  Zobrazí minimální uživatelské rozhraní bez jakýchkoli&#xA;   výzev, nebo nezobrazí žádné uživatelské rozhraní ani žádné výzvy. Ve výchozím&#xA;   nastavení  se jak uživatelské rozhraní, tak i všechny výzvy zobrazují.&#xA;&#xA;/norestart   - Potlačí jakékoli pokusy o restartování. Ve výchozím nastavení&#xA;   se v uživatelském rozhraní před restartováním zobrazí výzva.&#xA;/log log.txt - Nastaví, že se má zapisovat do konkrétního souboru protokolu.&#xA;   Ve výchozím nastavení je soubor protokolu vytvořen v umístění %TEMP%." />
+  <String Id="HelpCloseButton" Value="&amp;Zavřít" />
+  <String Id="InstallLicenseTerms" Value="Kliknutím na tlačítko Přijmout a nainstalovat přijmete &lt;a href=&quot;#&quot;&gt;licenční podmínky&lt;/a&gt; rozhraní Microsoft .NET Framework." />
+  <String Id="InstallAcceptAndInstallButton" Value="&amp;Přijmout a instalovat" />
+  <String Id="InstallDeclineButton" Value="&amp;Odmítnout" />
+  <String Id="ProgressHeader" Value="Průběh instalace" />
+  <String Id="ProgressLabel" Value="Probíhá zpracování:" />
+  <String Id="ProgressCancelButton" Value="&amp;Storno" />
+  <String Id="SuccessHeader" Value="Microsoft .NET Framework Setup Successful" />
+  <String Id="SuccessRestartText" Value="You must restart your computer before [WixBundleName] setup can continue." />
+  <String Id="SuccessRestartButton" Value="&amp;Restart" />
+  <String Id="SuccessCloseButton" Value="&amp;Close" />
+  <String Id="FailureHeader" Value="Instalace se nezdařila" />
+  <String Id="FailureLogLinkText" Value="Byly zjištěny problémy, kvůli kterým se instalaci nepodařilo dokončit. Odstraňte tyto problémy a potom instalaci opakujte. Další informace naleznete v &lt;a href=&quot;#&quot;&gt;souboru protokolu&lt;/a&gt;." />
+  <String Id="FailureRestartText" Value="Aby bylo možné zrušení instalace softwaru dokončit, je nutné počítač restartovat." />
+  <String Id="FailureRestartButton" Value="&amp;Restartovat" />
+  <String Id="FailureCloseButton" Value="&amp;Zavřít" />
+  <String Id="NET452WIN7RTMErrorMessage" Value="[WixBundleName] cannot run on Windows 7 RTM with .NET 4.5.2 installed. Install Windows 7 SP1 to run in a supported environment." />
+  <String Id="PREREQBAINFINITELOOPErrorMessage" Value="[WixBundleName] failed to load the .NET Framework runtime even though all of the prerequisites are installed." />
+  <String Id="ErrorFailNoActionReboot" Value="No action was taken as a system reboot is required." />
+</WixLocalization>

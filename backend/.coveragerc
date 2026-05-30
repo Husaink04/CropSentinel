@@ -1,0 +1,17 @@
+[run]
+source =
+    app
+    database
+    main
+omit =
+    tests/*
+    app/repos/*
+    app/services/*
+    app/ws_service.py
+    app/lifecycle.py
+    */__init__.py
+
+[report]
+show_missing = True
+skip_covered = True
+fail_under = 60

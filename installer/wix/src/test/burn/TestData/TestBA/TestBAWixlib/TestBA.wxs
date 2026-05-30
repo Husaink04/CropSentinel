@@ -1,0 +1,27 @@
+﻿<!-- Copyright (c) .NET Foundation and contributors. All rights reserved. Licensed under the Microsoft Reciprocal License. See LICENSE.TXT file in the project root for full license information. -->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:bal="http://wixtoolset.org/schemas/v4/wxs/bal">
+  <Fragment>
+    <BootstrapperApplication SourceFile="!(bindpath.dncx86)\TestBA.exe">
+      <Payload SourceFile="!(bindpath.dncx86)\TestBA.deps.json" />
+      <Payload SourceFile="!(bindpath.dncx86)\TestBA.dll" />
+      <Payload SourceFile="!(bindpath.dncx86)\TestBA.runtimeconfig.json" />
+      <Payload SourceFile="!(bindpath.dncx86)\mbanative.dll" />
+      <Payload SourceFile="!(bindpath.dncx86)\WixToolset.BootstrapperApplicationApi.dll" />
+    </BootstrapperApplication>
+
+    <PackageGroup Id="TestBAdnc">
+      <PackageGroupRef Id="DesktopNetCoreRuntime609Redist_x86AsPrereq" />
+    </PackageGroup>
+  </Fragment>
+  <Fragment>
+    <BootstrapperApplication SourceFile="!(bindpath.net2x86)\TestBA.exe">
+      <Payload SourceFile="!(bindpath.net2x86)\TestBA.exe.config" />
+      <Payload SourceFile="!(bindpath.net2x86)\mbanative.dll" />
+      <Payload SourceFile="!(bindpath.net2x86)\WixToolset.BootstrapperApplicationApi.dll" />
+    </BootstrapperApplication>
+
+    <PackageGroup Id="TestBA">
+      <PackageGroupRef Id="NetFx48WebAsPrereq" />
+    </PackageGroup>
+  </Fragment>
+</Wix>

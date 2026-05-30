@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (c) .NET Foundation and contributors. All rights reserved. Licensed under the Microsoft Reciprocal License. See LICENSE.TXT file in the project root for full license information. -->
+
+<Project>
+  <PropertyGroup>
+    <AcceptEula>wix7</AcceptEula>
+  </PropertyGroup>
+
+  <Target Name="_SetWixVersion"
+          AfterTargets="_CreateProjectDefineConstants">
+    <PropertyGroup>
+      <PrereleaseSuffix Condition=" '$(SomeVerInfoDashLabel)'!='' ">-prerelease</PrereleaseSuffix>
+
+      <DefineConstants>
+        $(DefineConstants);
+        SetupVersion=$(PackageVersion);
+        SetupMajorVersion=$(SomeVerInfoMajor);
+        SetupMajorMinorVersion=$(SomeVerInfoMajor).$(SomeVerInfoMinor);
+        SetupMajorMinorPatchVersion=$(SomeVerInfoMajor).$(SomeVerInfoMinor).$(SomeVerInfoPatch);
+        SetupDashedMajorMinorVersion=$(SomeVerInfoMajor)-$(SomeVerInfoMinor);
+        SetupDashedPrerelease=$(PrereleaseSuffix);
+        Company=$(Company);
+      </DefineConstants>
+    </PropertyGroup>
+  </Target>
+</Project>

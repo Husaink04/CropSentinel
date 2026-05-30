@@ -1,0 +1,67 @@
+﻿<!-- Copyright (c) .NET Foundation and contributors. All rights reserved. Licensed under the Microsoft Reciprocal License. See LICENSE.TXT file in the project root for full license information. -->
+
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:bal="http://wixtoolset.org/schemas/v4/wxs/bal" xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+
+  <!--
+    .NET Framework installation state properties
+    Official documentation can be found at the following location:
+      .NET Framework 4.5/4.5.1/4.5.2/4.6/4.6.1/4.6.2 - http://msdn.microsoft.com/en-us/library/w0x726c2(v=vs.110).aspx
+  -->
+
+  <?define NetFx462MinRelease = 394802 ?>
+  <?define NetFx462WebLink = https://go.microsoft.com/fwlink/?LinkId=780596 ?>
+  <?define NetFx462RedistLink = https://go.microsoft.com/fwlink/?linkid=2099468 ?>
+  <?define NetFx462EulaLink = https://referencesource.microsoft.com/license.html ?>
+  <?define NetFx462WebId = NetFx462Web ?>
+  <?define NetFx462RedistId = NetFx462Redist ?>
+
+  <Fragment>
+    <PropertyRef Id="WIXNETFX4RELEASEINSTALLED" />
+    <Property Id="WIX_IS_NETFRAMEWORK_462_OR_LATER_INSTALLED" Secure="yes" />
+    <SetProperty Id="WIX_IS_NETFRAMEWORK_462_OR_LATER_INSTALLED" Value="1" After="AppSearch" Condition="WIXNETFX4RELEASEINSTALLED &gt;= &quot;#$(var.NetFx462MinRelease)&quot;" />
+  </Fragment>
+
+  <Fragment>
+    <util:RegistrySearchRef Id="NETFRAMEWORK45" />
+
+    <WixVariable Id="NetFx462WebDetectCondition" Value="NETFRAMEWORK45 &gt;= $(var.NetFx462MinRelease)" Overridable="yes" />
+    <WixVariable Id="NetFx462WebInstallCondition" Value="" Overridable="yes" />
+    <WixVariable Id="NetFx462WebPackageDirectory" Value="redist\" Overridable="yes" />
+
+    <PackageGroup Id="$(var.NetFx462WebId)">
+      <ExePackage CacheId="$(var.NetFx462WebId)_ABDCA79AF9DD48A0EA702AD45260B3C03093FB4B" InstallArguments="/q /norestart /log &quot;[NetFx462FullLog].html&quot;" PerMachine="yes" DetectCondition="!(wix.NetFx462WebDetectCondition)" InstallCondition="!(wix.NetFx462WebInstallCondition)" Id="$(var.NetFx462WebId)" Vital="yes" Permanent="yes" Protocol="netfx4" LogPathVariable="NetFx462FullLog" Cache="remove">
+        <ExePackagePayload Name="!(wix.NetFx462WebPackageDirectory)NDP462-KB3151802-Web.exe" DownloadUrl="$(var.NetFx462WebLink)" ProductName="Microsoft .NET Framework 4.6.2" Description="Microsoft .NET Framework 4.6.2 Setup" CertificatePublicKey="F49F9B33E25E33CCA0BFB15A62B7C29FFAB3880B" CertificateThumbprint="ABDCA79AF9DD48A0EA702AD45260B3C03093FB4B" Size="1404536" Version="4.6.1590.0" />
+      </ExePackage>
+    </PackageGroup>
+  </Fragment>
+
+  <Fragment>
+    <PackageGroup Id="$(var.NetFx462WebId)AsPrereq">
+      <PackageGroupRef Id="$(var.NetFx462WebId)" />
+    </PackageGroup>
+
+    <bal:BootstrapperApplicationPrerequisiteInformation PackageId="$(var.NetFx462WebId)" LicenseUrl="$(var.NetFx462EulaLink)" />
+  </Fragment>
+
+  <Fragment>
+    <util:RegistrySearchRef Id="NETFRAMEWORK45" />
+
+    <WixVariable Id="NetFx462RedistDetectCondition" Value="NETFRAMEWORK45 &gt;= $(var.NetFx462MinRelease)" Overridable="yes" />
+    <WixVariable Id="NetFx462RedistInstallCondition" Value="" Overridable="yes" />
+    <WixVariable Id="NetFx462RedistPackageDirectory" Value="redist\" Overridable="yes" />
+
+    <PackageGroup Id="$(var.NetFx462RedistId)">
+      <ExePackage CacheId="$(var.NetFx462RedistId)_ABDCA79AF9DD48A0EA702AD45260B3C03093FB4B" InstallArguments="/q /norestart /log &quot;[NetFx462FullLog].html&quot;" UninstallArguments="/uninstall /q /norestart /log &quot;[NetFx462FullLog].html&quot;" PerMachine="yes" DetectCondition="!(wix.NetFx462RedistDetectCondition)" InstallCondition="!(wix.NetFx462RedistInstallCondition)" Id="$(var.NetFx462RedistId)" Vital="yes" Permanent="yes" Protocol="netfx4" LogPathVariable="NetFx462FullLog">
+        <ExePackagePayload Name="!(wix.NetFx462RedistPackageDirectory)NDP462-KB3151800-x86-x64-AllOS-ENU.exe" DownloadUrl="$(var.NetFx462RedistLink)" ProductName="Microsoft .NET Framework 4.6.2" Description="Microsoft .NET Framework 4.6.2 Setup" CertificatePublicKey="F49F9B33E25E33CCA0BFB15A62B7C29FFAB3880B" CertificateThumbprint="C2048FB509F1C37A8C3E9EC6648118458AA01780" Size="62024904" Version="4.6.1590.0" />
+      </ExePackage>
+    </PackageGroup>
+  </Fragment>
+
+  <Fragment>
+    <PackageGroup Id="$(var.NetFx462RedistId)AsPrereq">
+      <PackageGroupRef Id="$(var.NetFx462RedistId)" />
+    </PackageGroup>
+
+    <bal:BootstrapperApplicationPrerequisiteInformation PackageId="$(var.NetFx462RedistId)" LicenseUrl="$(var.NetFx462EulaLink)" />
+  </Fragment>
+</Wix>

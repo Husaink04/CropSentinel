@@ -1,0 +1,13 @@
+<Project>
+  <Import Project="$(WixMSBuildProps)" />
+
+  <PropertyGroup>
+    <WixVariables>DataFolderVar=data</WixVariables>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <BindVariable Include="VersionVar=1.2.3" />
+  </ItemGroup>
+
+  <Import Project="$(WixTargetsPath)" />
+</Project>

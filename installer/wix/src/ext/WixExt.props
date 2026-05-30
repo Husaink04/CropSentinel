@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (c) .NET Foundation and contributors. All rights reserved. Licensed under the Microsoft Reciprocal License. See LICENSE.TXT file in the project root for full license information. -->
+
+<Project>
+  <PropertyGroup>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <NoWarn>NU5100</NoWarn>
+    <WixExtensionPackageFolder>wixext7</WixExtensionPackageFolder>
+    <PackageTags>$(PackageTags) wixext CustomActions</PackageTags>
+    <IsWixExtension>true</IsWixExtension>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="$(MSBuildProjectName).targets" PackagePath="build" />
+    <Content Include="$(PackageLicenseAcceptanceTargets)" Pack="true" PackagePath="build/CheckLicenseAcceptance.targets" />
+    <Content Include="$(TargetPath)" PackagePath="$(WixExtensionPackageFolder)" />
+
+    <PackageReference Include="WixToolset.Extensibility" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

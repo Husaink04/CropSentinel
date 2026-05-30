@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (c) .NET Foundation and contributors. All rights reserved. Licensed under the Microsoft Reciprocal License. See LICENSE.TXT file in the project root for full license information. -->
+
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Description>WiX Toolset MSBuild integration</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PublishDir>$(PublishRoot)WixToolset.Sdk\</PublishDir>
+    <NuspecFile>$(MSBuildThisFileName).nuspec</NuspecFile>
+    <NuspecBasePath>$(PublishDir)</NuspecBasePath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="build\$(MSBuildThisFileName).targets" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="tools\WixToolset.Signing.props" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="tools\WixToolset.Signing.targets" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="tools\wix.props" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="tools\wix.targets" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Sdk\Sdk.props" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Sdk\Sdk.targets" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <Target Name="PokeWixVersion"
+          AfterTargets="Publish">
+    <PropertyGroup>
+      <Namespaces>
+        <Namespace Prefix="msb" Uri="http://schemas.microsoft.com/developer/msbuild/2003" />
+      </Namespaces>
+    </PropertyGroup>
+
+    <XmlPoke
+      XmlInputPath="$(PublishDir)tools\wix.props"
+      Namespaces="$(Namespaces)"
+      Query="//msb:WixToolsetMajorVersion"
+      Value="$(SomeVerInfoMajor)" />
+
+    <XmlPoke
+      XmlInputPath="$(PublishDir)tools\wix.props"
+      Namespaces="$(Namespaces)"
+      Query="//msb:WixToolsetMinorVersion"
+      Value="$(SomeVerInfoMinor)" />
+
+    <XmlPoke
+      XmlInputPath="$(PublishDir)tools\wix.props"
+      Namespaces="$(Namespaces)"
+      Query="//msb:WixToolsetPatchVersion"
+      Value="$(SomeVerInfoPatch)" />
+
+    <XmlPoke
+      XmlInputPath="$(PublishDir)tools\wix.props"
+      Namespaces="$(Namespaces)"
+      Query="//msb:WixToolsetMajorMinorVersion"
+      Value="$(SomeVerInfoMajor).$(SomeVerInfoMinor)" />
+
+    <XmlPoke
+      XmlInputPath="$(PublishDir)tools\wix.props"
+      Namespaces="$(Namespaces)"
+      Query="//msb:WixToolsetVersion"
+      Value="$(SomeVerInfoMajor).$(SomeVerInfoMinor).$(SomeVerInfoPatch)" />
+  </Target>
+</Project>

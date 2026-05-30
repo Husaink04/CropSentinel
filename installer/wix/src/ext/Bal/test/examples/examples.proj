@@ -1,0 +1,45 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (c) .NET Foundation and contributors. All rights reserved. Licensed under the Microsoft Reciprocal License. See LICENSE.TXT file in the project root for full license information. -->
+
+
+<Project Sdk="Microsoft.Build.Traversal">
+
+  <PropertyGroup>
+    <EarliestCoreMBAProjectPath>EarliestCoreMBA\Example.EarliestCoreMBA.csproj</EarliestCoreMBAProjectPath>
+    <LatestCoreMBAProjectPath>LatestCoreMBA\Example.LatestCoreMBA.csproj</LatestCoreMBAProjectPath>
+    <WPFCoreMBAProjectPath>WPFCoreMBA\Example.WPFCoreMBA.csproj</WPFCoreMBAProjectPath>
+    <MBAPublishPath>$(OutputPath)examples\publish\</MBAPublishPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <CoreMBAProject Include="$(EarliestCoreMBAProjectPath)">
+      <PublishPath>$(MBAPublishPath)Example.EarliestCoreMBA</PublishPath>
+      <TrimMode>CopyUsed</TrimMode>
+    </CoreMBAProject>
+    <CoreMBAProject Include="$(LatestCoreMBAProjectPath)">
+      <PublishPath>$(MBAPublishPath)Example.LatestCoreMBA</PublishPath>
+      <TrimMode>Link</TrimMode>
+    </CoreMBAProject>
+    <CoreMBAProject Include="$(WPFCoreMBAProjectPath)">
+      <PublishPath>$(MBAPublishPath)Example.WPFCoreMBA</PublishPath>
+      <SkipFDDx86>true</SkipFDDx86>
+      <SkipSCD>true</SkipSCD>
+    </CoreMBAProject>
+  </ItemGroup>
+
+  <Target Name="PublishCoreExamples" BeforeTargets="Build">
+    <Exec Command='dotnet publish -o "%(CoreMBAProject.PublishPath)\fdd-x86" -r win-x86 -c $(Configuration) --self-contained false "%(CoreMBAProject.Identity)"'
+          Condition="'%(CoreMBAProject.SkipFDDx86)'==''" />
+    <Exec Command='dotnet publish -o "%(CoreMBAProject.PublishPath)\fdd" -r win-x64 -c $(Configuration) --self-contained false "%(CoreMBAProject.Identity)"'
+          Condition="'%(CoreMBAProject.SkipFDD)'==''" />
+    <Exec Command='dotnet publish -o "%(CoreMBAProject.PublishPath)\scd" -r win-x64 -c $(Configuration) --self-contained true "%(CoreMBAProject.Identity)"'
+          Condition="'%(CoreMBAProject.SkipSCD)'==''" />
+    <Exec Command='dotnet publish -o "%(CoreMBAProject.PublishPath)\trimmedscd" -r win-x64 -c $(Configuration) --self-contained true -p:PublishTrimmed=false -p:TrimMode=%(CoreMBAProject.TrimMode) "%(CoreMBAProject.Identity)"'
+          Condition="'%(CoreMBAProject.TrimMode)'!=''" />
+  </Target>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\wixext\WixToolset.BootstrapperApplications.wixext.csproj" />
+    <ProjectReference Include="**\*.wixproj" />
+  </ItemGroup>
+</Project>

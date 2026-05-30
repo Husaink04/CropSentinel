@@ -1,0 +1,4 @@
+<WixLocalization xmlns="http://wixtoolset.org/schemas/v4/wxl" Culture="de-DE">
+  <String Id="DowngradeError" Value="German DowngradeError" />
+  <String Id="FeatureTitle" Value="German FeatureTitle" />
+</WixLocalization>

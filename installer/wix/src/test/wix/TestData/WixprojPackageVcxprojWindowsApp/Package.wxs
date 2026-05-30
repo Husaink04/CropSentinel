@@ -1,0 +1,28 @@
+<?ifndef WixprojLibraryVcxprojDll.ProjectDir ?>
+<?error This error should not be hit when wixlib ProjectReferences correctly create their DefineConstants. ?>
+<?endif?>
+
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <Package Name='!(loc.PackageName)' Manufacturer='WiX Toolset' Version='0.0.1' UpgradeCode='41a2c17e-1976-465b-bcde-eae03516ca68'>
+    <SoftwareTag Regid='wixtoolset.org' InstallDirectory='ApplicationFolder' />
+
+    <StandardDirectory Id='ProgramFiles6432Folder'>
+      <Directory Id='ApplicationFolder' Name='Test App'>
+        <Merge Id='WinFormsModule' Language='0' SourceFile='WixprojModuleCsprojWinFormsNetFx.msm' />
+      </Directory>
+    </StandardDirectory>
+
+    <Feature Id='Main' Title='!(loc.FeatureTitle)'>
+      <Component Directory='ApplicationFolder'>
+        <File Id='VcxprojWindowsApp' Source='VcxprojWindowsApp.exe' />
+      </Component>
+
+      <ComponentGroupRef Id='VcxprojDllComponentGroup' />
+
+      <MergeRef Id='WinFormsModule' />
+    </Feature>
+
+    <ui:WixUI Id="WixUI_Minimal" />
+  </Package>
+</Wix>

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (c) .NET Foundation and contributors. All rights reserved. Licensed under the Microsoft Reciprocal License. See LICENSE.TXT file in the project root for full license information. -->
+
+<Project Sdk="Microsoft.Build.Traversal">
+  <ItemGroup>
+    <!-- Restore: Explicitly restore the test projects, which need some hand-holding. -->
+    <ProjectReference Include="test\BalUtilUnitTest\BalUtilUnitTest.vcxproj" Targets="Restore" BuildInParallel="false" />
+    <ProjectReference Include="test\BextUtilUnitTest\BextUtilUnitTest.vcxproj" Targets="Restore" BuildInParallel="false" />
+
+    <!-- C++/CLI projects will try to build their dependent projects in parallel with others, so they must be built first. -->
+    <ProjectReference Include="test\BalUtilUnitTest\BalUtilUnitTest.vcxproj" Properties="Platform=x86" BuildInParallel="false" />
+    <ProjectReference Include="test\BextUtilUnitTest\BextUtilUnitTest.vcxproj" Properties="Platform=x86" BuildInParallel="false" />
+
+    <!-- Make sure that if these rebuild balutil due to the inability for incremental build, then all shipped code uses the same binaries. -->
+    <ProjectReference Include="test\WixToolsetTest.BootstrapperApplicationApi\WixToolsetTest.BootstrapperApplicationApi.csproj" Properties="Platform=AnyCPU" BuildInParallel="false" />
+    <ProjectReference Include="WixToolset.BootstrapperApplicationApi\WixToolset.BootstrapperApplicationApi.csproj" Properties="Platform=AnyCPU" BuildInParallel="false" />
+
+    <!-- Build -->
+
+    <!-- bextutil x86 is built by BextUtilUnitTest -->
+    <ProjectReference Include="bextutil\bextutil.vcxproj" Properties="Platform=x64" />
+    <ProjectReference Include="bextutil\bextutil.vcxproj" Properties="Platform=ARM64" />
+
+    <ProjectReference Include="mbanative\mbanative.vcxproj" Properties="Platform=x86" />
+    <ProjectReference Include="mbanative\mbanative.vcxproj" Properties="Platform=x64" />
+    <ProjectReference Include="mbanative\mbanative.vcxproj" Properties="Platform=ARM64" />
+
+    <!-- balutil is built by multiple projects above. -->
+
+    <!-- Pack -->
+    <ProjectReference Include="bextutil\bextutil.vcxproj" Targets="PackNative" />
+    <ProjectReference Include="WixToolset.BootstrapperApplicationApi\WixToolset.BootstrapperApplicationApi.csproj" Properties="NoBuild=true" Targets="Pack" />
+  </ItemGroup>
+</Project>

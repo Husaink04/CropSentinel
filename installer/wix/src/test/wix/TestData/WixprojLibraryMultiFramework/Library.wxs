@@ -1,0 +1,26 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <Fragment>
+    <ComponentGroup Id='CsprojClassLibraryMultiFrameworkNet80' Directory='ApplicationFolder' Subdirectory="net8.0">
+      <Component>
+        <File Id="Net80" Source='!(bindpath.CsprojConsoleMultiFramework.net8.0)CsprojConsoleMultiFramework.exe' />
+        <File Source='!(bindpath.CsprojConsoleMultiFramework.net8.0)CsprojConsoleMultiFramework.deps.json' />
+        <File Source='!(bindpath.CsprojConsoleMultiFramework.net8.0)CsprojConsoleMultiFramework.runtimeconfig.json' />
+      </Component>
+      <Component>
+        <File Source='!(bindpath.CsprojConsoleMultiFramework.net8.0)CsprojClassLibraryMultiFramework.dll' />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id='CsprojClassLibraryMultiFrameworkNet472' Directory='ApplicationFolder' Subdirectory="net472">
+      <Component>
+        <File Id="Net472" Source='!(bindpath.CsprojConsoleMultiFramework.net472)CsprojConsoleMultiFramework.exe' />
+        <File Source='!(bindpath.CsprojConsoleMultiFramework.net472)CsprojConsoleMultiFramework.exe.config' />
+      </Component>
+      <Component>
+        <File Source='!(bindpath.CsprojConsoleMultiFramework.net472)CsprojClassLibraryMultiFramework.dll' />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+</Wix>

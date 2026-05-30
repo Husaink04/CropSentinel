@@ -1,0 +1,244 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2400" height="1720" viewBox="0 0 2400 1720">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f5f8fc"/>
+      <stop offset="100%" stop-color="#eef3f8"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#12344d" flood-opacity="0.12"/>
+    </filter>
+    <marker id="arrow-blue" markerWidth="14" markerHeight="14" refX="11" refY="7" orient="auto">
+      <path d="M0,0 L14,7 L0,14 z" fill="#2f6fed"/>
+    </marker>
+    <marker id="arrow-green" markerWidth="14" markerHeight="14" refX="11" refY="7" orient="auto">
+      <path d="M0,0 L14,7 L0,14 z" fill="#1f8f6a"/>
+    </marker>
+    <marker id="arrow-amber" markerWidth="14" markerHeight="14" refX="11" refY="7" orient="auto">
+      <path d="M0,0 L14,7 L0,14 z" fill="#c47d12"/>
+    </marker>
+    <marker id="arrow-slate" markerWidth="14" markerHeight="14" refX="11" refY="7" orient="auto">
+      <path d="M0,0 L14,7 L0,14 z" fill="#4d6475"/>
+    </marker>
+    <style>
+      .title { font: 700 40px 'Segoe UI', Arial, sans-serif; fill: #12344d; }
+      .subtitle { font: 500 18px 'Segoe UI', Arial, sans-serif; fill: #476072; }
+      .section { font: 700 24px 'Segoe UI', Arial, sans-serif; fill: #143652; }
+      .box-title { font: 700 20px 'Segoe UI', Arial, sans-serif; fill: #143652; }
+      .box-meta { font: 600 13px 'Segoe UI', Arial, sans-serif; fill: #567185; letter-spacing: 0.04em; }
+      .body { font: 500 15px 'Segoe UI', Arial, sans-serif; fill: #29485d; }
+      .small { font: 500 13px 'Segoe UI', Arial, sans-serif; fill: #4f6778; }
+      .legend { font: 600 14px 'Segoe UI', Arial, sans-serif; fill: #29485d; }
+      .chip { font: 700 12px 'Segoe UI', Arial, sans-serif; fill: #ffffff; letter-spacing: 0.04em; }
+      .line-blue { stroke: #2f6fed; stroke-width: 5; fill: none; marker-end: url(#arrow-blue); }
+      .line-green { stroke: #1f8f6a; stroke-width: 5; fill: none; marker-end: url(#arrow-green); }
+      .line-amber { stroke: #c47d12; stroke-width: 5; fill: none; marker-end: url(#arrow-amber); }
+      .line-slate { stroke: #4d6475; stroke-width: 4; fill: none; marker-end: url(#arrow-slate); }
+      .line-dashed { stroke-dasharray: 10 8; }
+      .panel { filter: url(#shadow); }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="2400" height="1720" fill="url(#bg)"/>
+
+  <text x="80" y="78" class="title">CropSentinel Current System Design</text>
+  <text x="80" y="112" class="subtitle">Detailed current-state architecture derived from the present repository structure, runtime flows, and deployment assets in the CropSentinel codebase.</text>
+
+  <g transform="translate(80 145)">
+    <rect x="0" y="0" rx="16" ry="16" width="2240" height="110" fill="#ffffff" stroke="#d7e2ec" stroke-width="2" class="panel"/>
+    <text x="28" y="34" class="section">System Summary</text>
+    <text x="28" y="62" class="body">Two React portals share one frontend codebase: a tenant customer portal and a separate platform-admin portal. Both talk to a FastAPI backend that exposes REST APIs and a shared admin WebSocket. Endpoint agents run on monitored machines, stream activity over WebSocket first with HTTP fallback, store unsent work locally, and participate in live-view / remote-access WebRTC sessions through backend signaling.</text>
+    <text x="28" y="92" class="body">Core storage is PostgreSQL with tenant-scoped tables, time-partitioned activity logs, JSON settings and policy documents, evidence objects, alert queues, DLP incidents, phishing incidents, and machine health. Redis is used when configured for multi-instance WebSocket fanout and online-machine coordination; otherwise the backend falls back to single-instance in-memory delivery.</text>
+  </g>
+
+  <g transform="translate(80 290)">
+    <text x="0" y="0" class="section">1. User and Access Layer</text>
+
+    <g class="panel">
+      <rect x="0" y="28" rx="22" ry="22" width="510" height="245" fill="#ffffff" stroke="#d8e4ef" stroke-width="2"/>
+      <rect x="26" y="24" rx="10" ry="10" width="132" height="28" fill="#2f6fed"/>
+      <text x="52" y="43" class="chip">HUMAN ACCESS</text>
+      <text x="28" y="84" class="box-title">Customer Portal Users</text>
+      <text x="28" y="110" class="body">Admin, manager, viewer, and remote_operator roles authenticated with tenant-scoped JWTs.</text>
+      <text x="28" y="138" class="body">Main pages: Dashboard, Machines, Teams, Live View, Remote Access, App Usage, Browser Logs, Productivity, Input, Files, Network, DLP, Phishing, Alerts, Reports, Users, Settings.</text>
+      <text x="28" y="179" class="small">Permissions mirror backend role checks such as machines.view, alerts.manage, remote.access, reports.generate, settings.edit.</text>
+      <text x="28" y="220" class="small">Single shared admin WebSocket per browser session receives machine-online state, screenshots, alerts, DLP/phishing updates, and WebRTC signaling.</text>
+    </g>
+
+    <g class="panel">
+      <rect x="560" y="28" rx="22" ry="22" width="510" height="245" fill="#ffffff" stroke="#d8e4ef" stroke-width="2"/>
+      <rect x="586" y="24" rx="10" ry="10" width="148" height="28" fill="#2f6fed"/>
+      <text x="607" y="43" class="chip">PLATFORM ACCESS</text>
+      <text x="588" y="84" class="box-title">Platform Admin Portal</text>
+      <text x="588" y="110" class="body">Separate login path and separate token storage for platform routes.</text>
+      <text x="588" y="138" class="body">Main pages: Overview, Tenant Management, Platform Users, Platform DLP baseline, Platform Phishing baseline.</text>
+      <text x="588" y="179" class="small">Platform tenant is enforced as tenant_id=1 for platform-admin guarded routes.</text>
+      <text x="588" y="220" class="small">Creates and updates tenants, rotates enrollment tokens, packages installer bundles, and manages platform-wide baseline policy defaults.</text>
+    </g>
+
+    <g class="panel">
+      <rect x="1120" y="28" rx="22" ry="22" width="1120" height="245" fill="#ffffff" stroke="#d8e4ef" stroke-width="2"/>
+      <rect x="1146" y="24" rx="10" ry="10" width="132" height="28" fill="#174f7f"/>
+      <text x="1179" y="43" class="chip">FRONTEND APP</text>
+      <text x="1148" y="84" class="box-title">Shared React + Vite Frontend</text>
+      <text x="1148" y="110" class="body">`frontend/src/main.jsx` defines lazy-loaded route trees, `PrivateRoute` for customer pages, and `PlatformPrivateRoute` for platform pages.</text>
+      <text x="1148" y="138" class="body">`useAuth.jsx` provides REST fetch helpers, one session-wide `/ws/admin` connection, error normalization, token persistence, and API-base environment handling via `VITE_API_URL`.</text>
+      <text x="1148" y="179" class="body">Sentry browser SDK is optional via env. Notification and page-context providers wrap the route tree. The frontend ships as a separate container in `docker-compose.yml` and serves the portals over port 80.</text>
+      <text x="1148" y="220" class="small">Logical outcome: one UI codebase, two access contexts, one backend API surface, one shared realtime event channel per signed-in browser session.</text>
+    </g>
+  </g>
+
+  <g transform="translate(80 615)">
+    <text x="0" y="0" class="section">2. API and Realtime Control Plane</text>
+
+    <g class="panel">
+      <rect x="0" y="28" rx="24" ry="24" width="1380" height="545" fill="#ffffff" stroke="#d8e4ef" stroke-width="2"/>
+      <rect x="30" y="24" rx="10" ry="10" width="188" height="28" fill="#1f8f6a"/>
+      <text x="60" y="43" class="chip">FASTAPI BACKEND</text>
+      <text x="30" y="84" class="box-title">Unified Backend Runtime</text>
+      <text x="30" y="110" class="body">`backend/main.py` composes routers for auth, platform, users, machines, analytics, teams, alerts/settings, DLP enterprise, phishing, sessions, data logs, tenants, database admin, and WebSockets.</text>
+
+      <rect x="30" y="145" rx="18" ry="18" width="400" height="176" fill="#f5fbf8" stroke="#cfe6db" stroke-width="2"/>
+      <text x="52" y="173" class="box-meta">AUTHORIZATION + TENANT CONTEXT</text>
+      <text x="52" y="202" class="body">JWT login for customer and platform portals.</text>
+      <text x="52" y="228" class="body">Middleware decodes tenant_id, role, username, sets DB tenant context, and tags Sentry context.</text>
+      <text x="52" y="255" class="body">Role permissions and machine scoping enforced before route access.</text>
+      <text x="52" y="285" class="small">License feature checks gate remote access and other premium capabilities.</text>
+
+      <rect x="465" y="145" rx="18" ry="18" width="400" height="176" fill="#f5fbf8" stroke="#cfe6db" stroke-width="2"/>
+      <text x="487" y="173" class="box-meta">LIFECYCLE + DEFAULTS</text>
+      <text x="487" y="202" class="body">Boot flow loads and verifies the license, seeds default settings, admin user, and baseline alert rules.</text>
+      <text x="487" y="228" class="body">Background Redis subscriber task is started if `REDIS_URL` exists.</text>
+      <text x="487" y="255" class="body">Seat enforcer and agent API-key expectations are attached to app state.</text>
+      <text x="487" y="285" class="small">Operational knobs include screenshot cadence, baseline inventory defaults, and self-throttle defaults.</text>
+
+      <rect x="900" y="145" rx="18" ry="18" width="448" height="176" fill="#f5fbf8" stroke="#cfe6db" stroke-width="2"/>
+      <text x="922" y="173" class="box-meta">ROUTERS / DOMAIN SURFACES</text>
+      <text x="922" y="202" class="body">Monitoring: machines, analytics, browser/app/file/network/input activity, screenshots, reports.</text>
+      <text x="922" y="228" class="body">Security: alert rules/logs, audit logs, DLP policy/rules/incidents, phishing policy/incidents.</text>
+      <text x="922" y="255" class="body">Admin: tenants, platform stats, platform users, DB admin, settings, sessions.</text>
+      <text x="922" y="285" class="small">Both REST ingestion and WebSocket ingestion land in the same backend service layer and DB methods.</text>
+
+      <rect x="30" y="350" rx="18" ry="18" width="645" height="193" fill="#eef5ff" stroke="#c9daf8" stroke-width="2"/>
+      <text x="52" y="378" class="box-meta">WEBSOCKET CONTROL PLANE</text>
+      <text x="52" y="407" class="body">`/ws/admin`: browser sessions subscribe once per login, receive scoped tenant events, request screenshots, and initiate WebRTC session signaling.</text>
+      <text x="52" y="437" class="body">`/ws/agent/{machine_id}`: authenticated agent sockets push browser/app/screenshot/file/network/input/DLP/phishing/heartbeat events and receive config or command acks.</text>
+      <text x="52" y="468" class="body">Offline grace logic broadcasts `machine_unstable` then `machine_offline`, evaluates connectivity alerts, and terminates related WebRTC sessions if the agent stays absent.</text>
+      <text x="52" y="512" class="small">Redis-backed broadcast and per-agent command channels are used only when `REDIS_URL` is configured; otherwise the same `ConnectionManager` runs in-memory.</text>
+
+      <rect x="705" y="350" rx="18" ry="18" width="643" height="193" fill="#fff8ef" stroke="#efd8b1" stroke-width="2"/>
+      <text x="727" y="378" class="box-meta">SESSION + REMOTE ACCESS PATH</text>
+      <text x="727" y="407" class="body">REST session endpoints return machine capabilities and handshake metadata for `live` or `remote` sessions.</text>
+      <text x="727" y="437" class="body">`webrtc_manager.py` is a signaling relay only: the backend routes SDP/ICE between browser and agent but does not carry media.</text>
+      <text x="727" y="468" class="body">Remote commands are validated against an allowlist: lock screen, show message, open URL, mute/unmute audio, sleep, logout user, ctrl-alt-del.</text>
+      <text x="727" y="512" class="small">Live view can degrade to JPEG screenshot polling when full WebRTC streaming is not active.</text>
+    </g>
+
+    <g class="panel">
+      <rect x="1430" y="28" rx="24" ry="24" width="810" height="545" fill="#ffffff" stroke="#d8e4ef" stroke-width="2"/>
+      <rect x="1460" y="24" rx="10" ry="10" width="176" height="28" fill="#174f7f"/>
+      <text x="1493" y="43" class="chip">SERVICE DOMAINS</text>
+      <text x="1460" y="84" class="box-title">Business Services and Workflows</text>
+
+      <rect x="1460" y="120" rx="18" ry="18" width="350" height="170" fill="#f7fbff" stroke="#d6e7f8" stroke-width="2"/>
+      <text x="1482" y="148" class="box-meta">ACTIVITY INGEST</text>
+      <text x="1482" y="177" class="body">Validates payload sizes, deduplicates event IDs, normalizes machine payloads, and routes inserts plus alert evaluation.</text>
+      <text x="1482" y="206" class="body">Used by both HTTP routes and WebSocket event handling.</text>
+      <text x="1482" y="248" class="small">Event types: browser, application, screenshot, heartbeat, input, file, network.</text>
+
+      <rect x="1840" y="120" rx="18" ry="18" width="370" height="170" fill="#f7fbff" stroke="#d6e7f8" stroke-width="2"/>
+      <text x="1862" y="148" class="box-meta">DLP ENTERPRISE</text>
+      <text x="1862" y="177" class="body">Versioned policies, rules, classifiers, exceptions, incident grouping, simulation, diagnostics, and baseline status APIs.</text>
+      <text x="1862" y="206" class="body">Legacy `/api/dlp/events` remains active for event ingestion compatibility.</text>
+      <text x="1862" y="248" class="small">High-risk events auto-create alert logs and broadcast tenant-scoped alert updates.</text>
+
+      <rect x="1460" y="320" rx="18" ry="18" width="350" height="190" fill="#f7fbff" stroke="#d6e7f8" stroke-width="2"/>
+      <text x="1482" y="348" class="box-meta">PHISHING DOMAIN</text>
+      <text x="1482" y="377" class="body">Tenant effective policies, platform baseline, event ingestion, grouped incidents, allowlists, whitelists, blacklists, and diagnostics.</text>
+      <text x="1482" y="419" class="small">Browser-driven warn-only protection is the current coverage model, with unsupported channels degrading visibly.</text>
+
+      <rect x="1840" y="320" rx="18" ry="18" width="370" height="190" fill="#f7fbff" stroke="#d6e7f8" stroke-width="2"/>
+      <text x="1862" y="348" class="box-meta">TENANT OPERATIONS</text>
+      <text x="1862" y="377" class="body">Tenant CRUD, seat and expiry metadata, enrollment-token rotation, and tenant-specific downloadable agent bundles.</text>
+      <text x="1862" y="406" class="body">Download bundle includes installer artifact plus generated `config.env` and README.</text>
+      <text x="1862" y="448" class="small">Windows bundle expects a prebuilt `cropsentinel-agent-*.exe` in `backend/dist/installers`.</text>
+    </g>
+  </g>
+
+  <g transform="translate(80 1235)">
+    <text x="0" y="0" class="section">3. Data Plane, Persistence, and Endpoint Runtime</text>
+
+    <g class="panel">
+      <rect x="0" y="28" rx="24" ry="24" width="840" height="395" fill="#ffffff" stroke="#d8e4ef" stroke-width="2"/>
+      <rect x="30" y="24" rx="10" ry="10" width="182" height="28" fill="#c47d12"/>
+      <text x="60" y="43" class="chip">PERSISTENT DATA</text>
+      <text x="30" y="84" class="box-title">PostgreSQL Core Store</text>
+      <text x="30" y="112" class="body">Tenant root tables: tenants, machines, teams, team_memberships, users, settings, tenant_config_documents, audit_logs, alert_rules, alert_logs.</text>
+      <text x="30" y="145" class="body">Time-partitioned activity streams: browser_activity, app_activity, file_activity, network_activity, and related analytics-facing tables.</text>
+      <text x="30" y="178" class="body">Security and evidence: screenshots, evidence_objects, DLP event / incident / policy / classifier / exception data, phishing events / incidents / lists, machine `agent_health` JSON snapshots.</text>
+      <text x="30" y="223" class="small">Machine rows carry last_seen, active_app, idle_seconds, CPU, memory, agent_version, tenant binding, and structured health telemetry used by diagnostics and self-throttle visibility.</text>
+      <text x="30" y="268" class="small">Settings are keyed per tenant. Policy-style documents are stored as JSON payloads so agents can receive effective config through heartbeat responses.</text>
+      <text x="30" y="313" class="small">Reports are generated through backend routes and saved in the reports volume. License information and feature gating also live in the backend runtime and tenant metadata.</text>
+      <text x="30" y="358" class="small">Compose uses PostgreSQL 16 as the system database and mounts a persistent named volume for data durability.</text>
+    </g>
+
+    <g class="panel">
+      <rect x="880" y="28" rx="24" ry="24" width="480" height="395" fill="#ffffff" stroke="#d8e4ef" stroke-width="2"/>
+      <rect x="910" y="24" rx="10" ry="10" width="146" height="28" fill="#4d6475"/>
+      <text x="945" y="43" class="chip">OPTIONAL BUS</text>
+      <text x="910" y="84" class="box-title">Redis Coordination Layer</text>
+      <text x="910" y="112" class="body">Channels:</text>
+      <text x="910" y="140" class="body">`croppro:events` for cross-instance admin event fanout.</text>
+      <text x="910" y="169" class="body">`croppro:agent:{machine_id}` for cross-instance commands to connected agents.</text>
+      <text x="910" y="198" class="body">`croppro:online` set for global online machine tracking.</text>
+      <text x="910" y="240" class="small">When `REDIS_URL` is absent, this entire layer is bypassed and the backend behaves as a single-instance node with local memory state only.</text>
+      <text x="910" y="298" class="small">Compose includes Redis 7 by default, so the current intended deployment shape supports horizontal-safe event routing even though single-instance fallback exists.</text>
+    </g>
+
+    <g class="panel">
+      <rect x="1400" y="28" rx="24" ry="24" width="840" height="395" fill="#ffffff" stroke="#d8e4ef" stroke-width="2"/>
+      <rect x="1430" y="24" rx="10" ry="10" width="156" height="28" fill="#2f6fed"/>
+      <text x="1460" y="43" class="chip">ENDPOINT AGENT</text>
+      <text x="1430" y="84" class="box-title">Agent Runtime on Monitored Machines</text>
+      <text x="1430" y="112" class="body">`agent/agent.py` orchestrates machine identity, consent/config files, runtime intervals, local queueing, heartbeat exchange, realtime transport, and module startup.</text>
+      <text x="1430" y="145" class="body">Telemetry modules: browser history, screenshots, application activity, input activity, file tracking, network tracking, USB tracking, print tracking, phishing protection, WebRTC agent, baseline inventory.</text>
+      <text x="1430" y="191" class="body">Transport model: WebSocket-first to `/ws/agent/{machine_id}` with event acknowledgements, plus REST fallback endpoints for batch / activity uploads.</text>
+      <text x="1430" y="237" class="small">Local persistence includes an encrypted SQLite-backed offline queue for unsent events and a fingerprint/inventory SQLite store for baseline file scanning.</text>
+      <text x="1430" y="283" class="small">Self-throttle policy can stretch screenshot, heartbeat, browser, network, USB, print, and file-cache sweep intervals based on CPU, memory, and queue depth while still reporting effective runtime state back to the server.</text>
+      <text x="1430" y="342" class="small">Agent config is hot-reloaded from heartbeat responses, including DLP policy, phishing policy, baseline inventory settings, and performance controls.</text>
+    </g>
+  </g>
+
+  <g>
+    <path d="M590 438 C760 438, 980 438, 1120 438" class="line-blue"/>
+    <path d="M1120 438 C1030 438, 910 438, 820 438" class="line-blue line-dashed"/>
+
+    <path d="M1830 438 C1700 438, 1600 438, 1460 438" class="line-blue"/>
+    <path d="M1830 470 C1750 620, 1740 760, 1740 880" class="line-green"/>
+
+    <path d="M520 880 C650 880, 790 880, 930 880" class="line-green"/>
+    <path d="M1740 880 C1740 1000, 1740 1090, 1740 1265" class="line-green"/>
+    <path d="M1470 1490 C1260 1490, 1110 1490, 920 1490" class="line-slate"/>
+    <path d="M1120 1490 C980 1490, 820 1490, 660 1490" class="line-amber"/>
+
+    <path d="M1810 1528 C1890 1528, 1995 1528, 2120 1528" class="line-blue"/>
+    <path d="M2120 1528 C2200 1528, 2230 1435, 2230 1328" class="line-blue line-dashed"/>
+
+    <path d="M2050 920 C2150 920, 2210 920, 2280 920" class="line-amber"/>
+    <path d="M2280 920 C2280 1060, 2280 1170, 2180 1268" class="line-amber"/>
+  </g>
+
+  <g transform="translate(1600 1005)">
+    <rect x="0" y="0" rx="20" ry="20" width="640" height="170" fill="#ffffff" stroke="#d8e4ef" stroke-width="2" class="panel"/>
+    <text x="28" y="34" class="section">Primary Runtime Flows</text>
+    <line x1="30" y1="62" x2="120" y2="62" class="line-blue"/>
+    <text x="136" y="67" class="legend">Portal REST + shared admin WebSocket traffic</text>
+    <line x1="30" y1="96" x2="120" y2="96" class="line-green"/>
+    <text x="136" y="101" class="legend">Agent telemetry, heartbeat config, and WebRTC signaling</text>
+    <line x1="30" y1="130" x2="120" y2="130" class="line-amber"/>
+    <text x="136" y="135" class="legend">Persistence and packaging paths (DB, evidence, installer, baseline sync)</text>
+  </g>
+
+  <g transform="translate(80 1632)">
+    <text x="0" y="0" class="small">Repository signals represented here: `frontend/src/main.jsx`, `frontend/src/hooks/useAuth.jsx`, `backend/main.py`, `backend/app/core.py`, `backend/app/lifecycle.py`, `backend/app/ws_service.py`, `backend/app/db/schema.py`, `backend/app/routers/*.py`, `backend/webrtc_manager.py`, `agent/agent.py`, `agent/baseline_inventory.py`, `backend/redis_bus.py`, `docker-compose.yml`.</text>
+  </g>
+</svg>

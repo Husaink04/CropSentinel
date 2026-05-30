@@ -1,0 +1,22 @@
+<!-- Copyright (c) .NET Foundation and contributors. All rights reserved. Licensed under the Microsoft Reciprocal License. See LICENSE.TXT file in the project root for full license information. -->
+
+
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:bal="http://wixtoolset.org/schemas/v4/wxs/bal">
+  <Fragment>
+    <BootstrapperApplication Id="customHyperlinkLicense">
+      <bal:WixStandardBootstrapperApplication LicenseUrl="" Theme="hyperlinkLicense" ThemeFile="CustomHyperlinkTheme.xml" />
+      <Payload SourceFile="$(var.BafThmUtilTesting.TargetPath)" bal:BAFunctions="yes" />
+    </BootstrapperApplication>
+    <PackageGroup Id="BundlePackages">
+      <MsiPackage Id="PackageA" SourceFile="$(var.PackageA.TargetPath)">
+        <MsiProperty Name="FORCERESTARTCA" Value="[FORCERESTARTCA]" />
+      </MsiPackage>
+      <ExePackage Id="ExeA" Cache="remove" PerMachine="yes"
+                  DetectCondition="" Permanent="yes" InstallArguments="/ec [EXEEXITCODE]">
+        <PayloadGroupRef Id="TestExePayloads" />
+      </ExePackage>
+    </PackageGroup>
+    <Variable Name="EXEEXITCODE" bal:Overridable="yes" Value="0" />
+    <Variable Name="FORCERESTARTCA" bal:Overridable="yes" />
+  </Fragment>
+</Wix>

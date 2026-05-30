@@ -1,0 +1,14 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+    <Bundle Id="WixToolsetTest.TestBundle" Name="BundleMissingMsuSource"
+            Version="1.0.0.0" Manufacturer="Example Corporation">
+        <BootstrapperApplication SourceFile="fakeba.dll" />
+
+        <Chain>
+            <MsuPackage
+               Id="MsuPackage1"
+               DetectCondition="TODO"
+               DisplayName="MSU Package #1"
+               DownloadUrl="http://example.com/test.msu" />
+        </Chain>
+    </Bundle>
+</Wix>

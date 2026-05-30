@@ -1,0 +1,77 @@
+{
+  "common": {
+    "save":     "Speichern",
+    "cancel":   "Abbrechen",
+    "delete":   "Löschen",
+    "edit":     "Bearbeiten",
+    "close":    "Schließen",
+    "search":   "Suchen",
+    "refresh":  "Aktualisieren",
+    "loading":  "Wird geladen…",
+    "error":    "Etwas ist schiefgelaufen",
+    "retry":    "Erneut versuchen",
+    "yes":      "Ja",
+    "no":       "Nein",
+    "all":      "Alle",
+    "none":     "Keine",
+    "unknown":  "Unbekannt",
+    "online":   "Online",
+    "offline":  "Offline"
+  },
+  "nav": {
+    "skip_to_content": "Zum Hauptinhalt springen",
+    "dashboard":       "Übersicht",
+    "machines":        "Geräte",
+    "live":            "Live-Ansicht",
+    "apps":            "Anwendungen",
+    "browser":         "Browser",
+    "productivity":    "Produktivität",
+    "input":           "Eingabe",
+    "files":           "Dateien",
+    "network":         "Netzwerk",
+    "dlp":             "DLP",
+    "alerts":          "Warnungen",
+    "remote":          "Fernzugriff",
+    "reports":         "Berichte",
+    "settings":        "Einstellungen",
+    "users":           "Benutzer",
+    "logout":          "Abmelden"
+  },
+  "auth": {
+    "sign_in":           "Anmelden",
+    "username":          "Benutzername",
+    "password":          "Passwort",
+    "login_failed":      "Anmeldung fehlgeschlagen — Zugangsdaten prüfen",
+    "session_expired":   "Ihre Sitzung ist abgelaufen. Bitte erneut anmelden."
+  },
+  "dashboard": {
+    "title":             "Übersicht",
+    "online_machines":   "Geräte online",
+    "unread_alerts":     "Ungelesene Warnungen",
+    "top_apps":          "Top-Anwendungen",
+    "top_domains":       "Top-Domains"
+  },
+  "machines": {
+    "title":             "Geräte",
+    "search_placeholder":"Nach Hostname oder IP suchen…",
+    "delete_confirm":    "{{hostname}} löschen? Der gesamte Verlauf wird entfernt.",
+    "deleted_toast":     "{{hostname}} gelöscht",
+    "activity_cleared":  "Aktivität für {{hostname}} gelöscht",
+    "no_machines":       "Noch keine Geräte registriert."
+  },
+  "alerts": {
+    "title":             "Warnungen",
+    "tab_logs":          "Protokolle",
+    "tab_rules":         "Regeln",
+    "acknowledge_all":   "Alle bestätigen",
+    "purge_acknowledged":"Bestätigte entfernen",
+    "no_alerts":         "Keine Warnungen vorhanden."
+  },
+  "platform": {
+    "title":             "Plattform-Administration",
+    "overview":          "Plattform-Übersicht",
+    "tenants":           "Mandantenverwaltung",
+    "users":             "Plattform-Benutzer",
+    "license":           "Lizenzverwaltung"
+  }
+}

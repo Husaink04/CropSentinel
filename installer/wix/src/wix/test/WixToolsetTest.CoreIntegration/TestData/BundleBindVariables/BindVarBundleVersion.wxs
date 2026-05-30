@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Bundle Id="WixToolsetTest.TestBundle" Name="BindVarBundleVersion" Version="!(wix.BundleVersion)" Manufacturer="Example Corporation">
+    <BootstrapperApplication Id="fakeba" SourceFile="fakeba.dll" />
+
+    <Chain>
+      <MsiPackage SourceFile="test.msi" />
+    </Chain>
+
+    <WixVariable Id="BundleVersion" Value="v8.7.6.5" />
+  </Bundle>
+</Wix>

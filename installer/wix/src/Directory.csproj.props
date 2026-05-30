@@ -1,0 +1,17 @@
+<!-- Copyright (c) .NET Foundation and contributors. All rights reserved. Licensed under the Microsoft Reciprocal License. See LICENSE.TXT file in the project root for full license information. -->
+
+<Project>
+  <PropertyGroup>
+    <LangVersion Condition=" '$(TargetFrameworkVersion)'=='' ">13.0</LangVersion>
+    <CheckForOverflowUnderflow>true</CheckForOverflowUnderflow>
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>$([System.IO.Path]::GetFullPath($(MSBuildThisFileDirectory)wix.snk))</AssemblyOriginatorKeyFile>
+    <CreateDocumentation Condition=" '$(CreateDocumentationFile)'!='true' ">false</CreateDocumentation>
+    <DocumentationFile Condition=" '$(CreateDocumentationFile)'=='true' ">$(OutputPath)\$(AssemblyName).xml</DocumentationFile>
+    <DebugType Condition=" '$(DebugType)'=='' ">embedded</DebugType>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <AcceptEula>abc;wix7;xyz;123</AcceptEula>
+  </PropertyGroup>
+</Project>

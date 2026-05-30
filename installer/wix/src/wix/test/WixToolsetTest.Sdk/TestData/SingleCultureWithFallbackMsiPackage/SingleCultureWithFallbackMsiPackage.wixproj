@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build">
+  <Import Project="$(WixMSBuildProps)" />
+
+  <PropertyGroup>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <Cultures>de-DE,en-us</Cultures>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Package.wxs" />
+    <Compile Include="PackageComponents.wxs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Package.en-us.wxl" />
+    <EmbeddedResource Include="Package.de-de.wxl" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <BindPath Include="data" />
+  </ItemGroup>
+
+  <Import Project="$(WixTargetsPath)" />
+</Project>

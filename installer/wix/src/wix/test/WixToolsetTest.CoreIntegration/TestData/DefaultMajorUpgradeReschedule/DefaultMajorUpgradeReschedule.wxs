@@ -1,0 +1,7 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+    <Package Id="WixToolsetTest.TestPackage" Name="DefaultMajorUpgradeReschedule" Language="1033" Version="2.0.0" Manufacturer="Example Corporation">
+        <InstallExecuteSequence>
+            <RemoveExistingProducts After="InstallFinalize" />
+        </InstallExecuteSequence>
+    </Package>
+</Wix>

@@ -1,0 +1,13 @@
+<Project DefaultTargets="Build">
+  <Import Project="$(WixMSBuildProps)" />
+
+  <PropertyGroup>
+    <Cultures>en-US,en;de-DE</Cultures>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <BindInputPaths Include="data" />
+  </ItemGroup>
+
+  <Import Project="$(WixTargetsPath)" />
+</Project>

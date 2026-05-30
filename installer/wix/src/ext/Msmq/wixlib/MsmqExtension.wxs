@@ -1,0 +1,14 @@
+﻿<!-- Copyright (c) .NET Foundation and contributors. All rights reserved. Licensed under the Microsoft Reciprocal License. See LICENSE.TXT file in the project root for full license information. -->
+
+
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+    <?include ..\..\caDecor.wxi ?>
+    <?include ..\..\caerr.wxi ?>
+
+    <Fragment>
+      <UI Id="MsmqUI">
+        <ProgressText Action="$(var.Prefix)MessageQueuingExecuteInstall$(var.Suffix)" Template="!(loc.MessageQueuingExecuteInstallTemplate)" Message="!(loc.MessageQueuingExecuteInstall)" />
+        <ProgressText Action="$(var.Prefix)MessageQueuingExecuteUninstall$(var.Suffix)" Template="!(loc.MessageQueuingExecuteUninstallTemplate)" Message="!(loc.MessageQueuingExecuteUninstall)" />
+      </UI>
+    </Fragment>
+</Wix>

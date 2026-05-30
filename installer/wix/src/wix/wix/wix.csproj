@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (c) .NET Foundation and contributors. All rights reserved. Licensed under the Microsoft Reciprocal License. See LICENSE.TXT file in the project root for full license information. -->
+
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net472</TargetFrameworks>
+    <OutputType>Exe</OutputType>
+    <Description>WiX Toolset creates installation packages.</Description>
+    <DebugType>embedded</DebugType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <PackAsTool>true</PackAsTool>
+    <RuntimeIdentifiers Condition=" '$(RuntimeIdentifier)'=='' and '$(TargetFramework)'!='net8.0' ">win-x86;win-x64;win-arm64</RuntimeIdentifiers>
+    <AppConfig>app.config</AppConfig>
+    <ApplicationManifest>wix.exe.manifest</ApplicationManifest>
+    <RollForward>Major</RollForward>
+    <NuspecBasePath>$(OutputPath)publish\wix\</NuspecBasePath>
+    <RequiresNativeWixAssets Condition=" '$(NCrunch)'=='' ">true</RequiresNativeWixAssets>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\WixToolset.Converters\WixToolset.Converters.csproj" />
+    <ProjectReference Include="..\WixToolset.Core\WixToolset.Core.csproj" />
+    <ProjectReference Include="..\WixToolset.Core.Burn\WixToolset.Core.Burn.csproj" />
+    <ProjectReference Include="..\WixToolset.Core.ExtensionCache\WixToolset.Core.ExtensionCache.csproj" />
+    <ProjectReference Include="..\WixToolset.Core.WindowsInstaller\WixToolset.Core.WindowsInstaller.csproj" />
+  </ItemGroup>
+
+</Project>

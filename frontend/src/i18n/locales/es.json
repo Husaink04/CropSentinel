@@ -1,0 +1,77 @@
+{
+  "common": {
+    "save":     "Guardar",
+    "cancel":   "Cancelar",
+    "delete":   "Eliminar",
+    "edit":     "Editar",
+    "close":    "Cerrar",
+    "search":   "Buscar",
+    "refresh":  "Actualizar",
+    "loading":  "Cargando…",
+    "error":    "Algo salió mal",
+    "retry":    "Reintentar",
+    "yes":      "Sí",
+    "no":       "No",
+    "all":      "Todos",
+    "none":     "Ninguno",
+    "unknown":  "Desconocido",
+    "online":   "En línea",
+    "offline":  "Desconectado"
+  },
+  "nav": {
+    "skip_to_content": "Saltar al contenido principal",
+    "dashboard":       "Panel",
+    "machines":        "Equipos",
+    "live":            "Vista en vivo",
+    "apps":            "Aplicaciones",
+    "browser":         "Navegador",
+    "productivity":    "Productividad",
+    "input":           "Entrada",
+    "files":           "Archivos",
+    "network":         "Red",
+    "dlp":             "DLP",
+    "alerts":          "Alertas",
+    "remote":          "Acceso remoto",
+    "reports":         "Informes",
+    "settings":        "Ajustes",
+    "users":           "Usuarios",
+    "logout":          "Cerrar sesión"
+  },
+  "auth": {
+    "sign_in":           "Iniciar sesión",
+    "username":          "Usuario",
+    "password":          "Contraseña",
+    "login_failed":      "Error al iniciar sesión — verifica tus credenciales",
+    "session_expired":   "Tu sesión ha caducado. Inicia sesión de nuevo."
+  },
+  "dashboard": {
+    "title":             "Panel",
+    "online_machines":   "Equipos en línea",
+    "unread_alerts":     "Alertas sin leer",
+    "top_apps":          "Aplicaciones principales",
+    "top_domains":       "Dominios principales"
+  },
+  "machines": {
+    "title":             "Equipos",
+    "search_placeholder":"Buscar por nombre de host o IP…",
+    "delete_confirm":    "¿Eliminar {{hostname}}? Esto borra todo el historial.",
+    "deleted_toast":     "{{hostname}} eliminado",
+    "activity_cleared":  "Actividad borrada de {{hostname}}",
+    "no_machines":       "Aún no hay equipos registrados."
+  },
+  "alerts": {
+    "title":             "Alertas",
+    "tab_logs":          "Registros",
+    "tab_rules":         "Reglas",
+    "acknowledge_all":   "Confirmar todas",
+    "purge_acknowledged":"Purgar confirmadas",
+    "no_alerts":         "No hay alertas que mostrar."
+  },
+  "platform": {
+    "title":             "Administración de la plataforma",
+    "overview":          "Resumen de la plataforma",
+    "tenants":           "Gestión de inquilinos",
+    "users":             "Usuarios de la plataforma",
+    "license":           "Gestión de licencias"
+  }
+}

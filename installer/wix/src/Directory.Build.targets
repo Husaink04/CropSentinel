@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (c) .NET Foundation and contributors. All rights reserved. Licensed under the Microsoft Reciprocal License. See LICENSE.TXT file in the project root for full license information. -->
+
+<Project>
+  <PropertyGroup>
+    <SigningToolExe>$(ToolsFolder)\sign.exe</SigningToolExe>
+    <SigningCommand>code azure-key-vault</SigningCommand>
+    <SigningConfiguration>--publisher-name "WiX Toolset" --description "WiX Toolset" --description-url "https://wixtoolset.org/" --recurse-containers=false --azure-credential-type azure-cli --azure-key-vault-url "$(SigningKeyVaultUri)" --azure-key-vault-certificate "$(SigningCertName)"</SigningConfiguration>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(IsWixTestSupportProject)'=='true' ">
+    <IsTestProject>false</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup Condition=" '$(IsWixTestSupportProject)'=='true' ">
+    <ProjectCapability Remove="TestContainer" />
+  </ItemGroup>
+
+  <!-- If the git information wasn't imported yet, import the cached git information. -->
+  <Import Project="$(RootBuildFolder)SomeVerInfo.props" Condition=" '$(SomeVerInfoImported)'!='true' " />
+  <Import Project="internal/SetBuildNumber/SomeVerInfo.targets" />
+
+  <PropertyGroup>
+    <RepositoryUrl Condition=" '$(RepositoryUrl)'=='' ">https://github.com/wixtoolset/wix</RepositoryUrl>
+    <RepositoryType Condition=" '$(RepositoryType)'=='' ">git</RepositoryType>
+    <RepositoryCommit Condition=" '$(RepositoryCommit)'=='' ">$(SomeVerInfoSha)</RepositoryCommit>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+
+    <ProjectUrl Condition=" '$(ProjectUrl)'=='' and '$(RepositoryUrl)'!='' ">$(RepositoryUrl)</ProjectUrl>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <GenerateNuspecDependsOn>
+      $(GenerateNuspecDependsOn);
+      __SetNuspecProperties;
+      VerifyOfficialBuild
+    </GenerateNuspecDependsOn>
+  </PropertyGroup>
+
+  <Target Name="__SetNuspecProperties"
+          Condition=" Exists('$(MSBuildProjectName).nuspec') ">
+    <PropertyGroup>
+      <NuspecFile Condition=" '$(NuspecFile)'=='' ">$(MSBuildProjectName).nuspec</NuspecFile>
+      <PackageId Condition=" '$(PackageId)'=='' ">$(MSBuildProjectName)</PackageId>
+      <Title Condition=" '$(Title)'=='' ">$(Description)</Title>
+      <NuspecBasePath Condition=" '$(NuspecBasePath)'=='' ">$(OutputPath)</NuspecBasePath>
+      <NuspecProperties>$(NuspecProperties);Id=$(PackageId);Version=$(PackageVersion);MajorVersion=$(SomeVerInfoMajor);NextMajorVersion=$(SomeVerInfoNextMajor);Authors=$(Authors);Configuration=$(Configuration)</NuspecProperties>
+      <NuspecProperties>$(NuspecProperties);Copyright=$(Copyright);Description=$(Description);Title=$(Title)</NuspecProperties>
+      <NuspecProperties>$(NuspecProperties);RepositoryType=$(RepositoryType);RepositoryCommit=$(RepositoryCommit);RepositoryUrl=$(RepositoryUrl)</NuspecProperties>
+      <NuspecProperties>$(NuspecProperties);PackageTags=$(PackageTags)</NuspecProperties>
+      <NuspecProperties>$(NuspecProperties);ProjectUrl=$(ProjectUrl);ProjectFolder=$(MSBuildProjectDirectory);RootFolder=$(RootFolder);EulaTxt=$(PackageEulaSource);IconPng=$(PackageIconSource);LicenseAcceptanceTargets=$(PackageLicenseAcceptanceTargets)</NuspecProperties>
+    </PropertyGroup>
+  </Target>
+
+  <Target Name="PackNative" DependsOnTargets="__SetNuspecProperties"
+          Condition=" Exists('$(MSBuildProjectName).nuspec') ">
+
+    <Exec Command='nuget pack $(NuspecFile) -OutputDirectory "$(PackageOutputPath.Trim(&quot;\&quot;))" -BasePath $(NuspecBasePath) -Properties "$(NuspecProperties)"'
+          WorkingDirectory="$(MSBuildProjectDirectory)" />
+
+    <ItemGroup>
+      <NuGetPackOutput Include="$(PackageOutputPath)\$(PackageId).$(PackageVersion).nupkg" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="SignOutput" AfterTargets="AfterBuild"
+          Condition=" '$(SigningCertName)'!='' and '$(SignOutput)'!='false' and
+                      ('$(MSBuildProjectExtension)'=='.csproj' or ('$(MSBuildProjectExtension)'=='.vcxproj' and '$(ConfigurationType)'!='StaticLibrary'))">
+
+    <Message Importance="high" Text="Signing file: $(TargetPath)" />
+
+    <Exec Command='"$(SigningToolExe)" $(SigningCommand) $(SigningConfiguration) $(TargetPath)'
+          WorkingDirectory="$(MSBuildProjectDirectory)" EchoOff="true" />
+  </Target>
+
+  <Target Name="SignNupkg" AfterTargets="Pack;PackNative"
+          Condition=" '$(SigningCertName)'!='' and '@(NuGetPackOutput)'!='' and '$(SignNupkg)'!='false' ">
+    <ItemGroup>
+      <SigningNupkgs Include="@(NuGetPackOutput)" Condition=" '%(Extension)'=='.nupkg' " />
+    </ItemGroup>
+
+    <Message Importance="high" Text="Signing nupkg: @(SigningNupkgs->&apos;%(Identity)&apos;)" />
+
+    <Exec Command='"$(SigningToolExe)" $(SigningCommand) $(SigningConfiguration) "@(SigningNupkgs->&apos;%(Identity)&apos;)"'
+          WorkingDirectory="$(MSBuildProjectDirectory)" EchoOff="true" />
+  </Target>
+
+  <!-- We want to be very precise about which MSIs we sign, so use 'true' for that precision. -->
+  <Target Name="SignMsi" Condition=" '$(SigningCertName)'!='' and '$(SignOutput)'=='true' ">
+    <Message Importance="high" Text="Signing MSI: @(SignMsi->&apos;%(Identity)&apos;)" />
+
+    <Exec Command='"$(SigningToolExe)" $(SigningCommand) $(SigningConfiguration) "@(SignMsi->&apos;%(Identity)&apos;)"'
+          WorkingDirectory="$(MSBuildProjectDirectory)" EchoOff="true" />
+  </Target>
+
+  <Target Name="SignBundleEngine" Condition=" '$(SigningCertName)'!='' and '$(SignOutput)'!='false' ">
+    <Message Importance="high" Text="Signing bundle engine: @(SignBundleEngine->&apos;%(Identity)&apos;)" />
+
+    <Exec Command='"$(SigningToolExe)" $(SigningCommand) $(SigningConfiguration) "@(SignBundleEngine->&apos;%(Identity)&apos;)"'
+          WorkingDirectory="$(MSBuildProjectDirectory)" EchoOff="true" />
+  </Target>
+
+  <Target Name="SignBundle" Condition=" '$(SigningCertName)'!='' and '$(SignOutput)'!='false' ">
+    <Message Importance="high" Text="Signing bundle: @(SignBundle->&apos;%(Identity)&apos;)" />
+
+    <Exec Command='"$(SigningToolExe)" $(SigningCommand) $(SigningConfiguration) "@(SignBundle->&apos;%(Identity)&apos;)"'
+          WorkingDirectory="$(MSBuildProjectDirectory)" EchoOff="true" />
+  </Target>
+
+  <Target Name="VerifyOfficialBuild" Condition=" '$(WixOfficialBuild)'=='true' ">
+    <Error Text="Official builds are only supported in the WiX Toolset repo. You are welcome to create your own builds but please do not use the official WiX Toolset name or logo."
+           Condition=" '$(RepoOrg)'!='wixtoolset' " />
+  </Target>
+
+  <Import Project="Directory$(MSBuildProjectExtension).targets" Condition=" Exists('Directory$(MSBuildProjectExtension).targets') " />
+  <Import Project="Custom.Build.targets" Condition=" Exists('Custom.Build.targets') " />
+</Project>

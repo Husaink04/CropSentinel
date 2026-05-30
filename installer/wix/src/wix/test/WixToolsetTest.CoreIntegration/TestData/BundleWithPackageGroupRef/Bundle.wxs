@@ -1,0 +1,15 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+    <Bundle Id="WixToolsetTest.TestBundle" Name="BurnBundle" Version="1.0.0.0" Manufacturer="Example Corporation">
+        <BootstrapperApplication SourceFile="fakeba.dll">
+            <PayloadGroupRef Id="ExtraBootstrapperApplicationPayloads" />
+        </BootstrapperApplication>
+
+        <Chain>
+            <PackageGroupRef Id="BundlePackages" />
+        </Chain>
+    </Bundle>
+
+    <Fragment>
+        <PayloadGroup Id="virtual ExtraBootstrapperApplicationPayloads" />
+    </Fragment>
+</Wix>

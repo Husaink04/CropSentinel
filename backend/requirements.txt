@@ -1,0 +1,16 @@
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic
+reportlab
+PyJWT
+websockets
+psycopg2-binary
+aiortc
+bcrypt
+cryptography
+slowapi
+redis[asyncio]
+sentry-sdk[fastapi]
+aiokafka
+boto3

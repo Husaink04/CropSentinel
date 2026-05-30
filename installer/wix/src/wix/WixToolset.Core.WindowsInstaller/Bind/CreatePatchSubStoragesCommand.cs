@@ -1,0 +1,791 @@
+// Copyright (c) .NET Foundation and contributors. All rights reserved. Licensed under the Microsoft Reciprocal License. See LICENSE.TXT file in the project root for full license information.
+
+namespace WixToolset.Core.WindowsInstaller.Bind
+{
+    using System;
+    using System.Collections.Generic;
+    using System.Globalization;
+    using System.Linq;
+    using System.Text.RegularExpressions;
+    using WixToolset.Core.Native.Msi;
+    using WixToolset.Data;
+    using WixToolset.Data.Symbols;
+    using WixToolset.Data.WindowsInstaller;
+    using WixToolset.Data.WindowsInstaller.Rows;
+    using WixToolset.Extensibility.Services;
+
+    /// <summary>
+    /// Include transforms in a patch.
+    /// </summary>
+    internal class CreatePatchSubStoragesCommand
+    {
+        private static readonly string[] PatchUninstallBreakingTables = new[]
+        {
+            "AppId",
+            "BindImage",
+            "Class",
+            "Complus",
+            "CreateFolder",
+            "DuplicateFile",
+            "Environment",
+            "Extension",
+            "Font",
+            "IniFile",
+            "IsolatedComponent",
+            "LockPermissions",
+            "MIME",
+            "MoveFile",
+            "MsiLockPermissionsEx",
+            "MsiServiceConfig",
+            "MsiServiceConfigFailureActions",
+            "ODBCAttribute",
+            "ODBCDataSource",
+            "ODBCDriver",
+            "ODBCSourceAttribute",
+            "ODBCTranslator",
+            "ProgId",
+            "PublishComponent",
+            "RemoveIniFile",
+            "SelfReg",
+            "ServiceControl",
+            "ServiceInstall",
+            "TypeLib",
+            "Verb",
+        };
+
+        private readonly TableDefinitionCollection tableDefinitions;
+
+        public CreatePatchSubStoragesCommand(IMessaging messaging, IBackendHelper backendHelper, Intermediate intermediate, IEnumerable<PatchTransform> transforms)
+        {
+            this.tableDefinitions = new TableDefinitionCollection(WindowsInstallerTableDefinitions.All);
+            this.Messaging = messaging;
+            this.BackendHelper = backendHelper;
+            this.Intermediate = intermediate;
+            this.Transforms = transforms;
+        }
+
+        private IMessaging Messaging { get; }
+
+        private IBackendHelper BackendHelper { get; }
+
+        private Intermediate Intermediate { get; }
+
+        private IEnumerable<PatchTransform> Transforms { get; }
+
+        public IEnumerable<SubStorage> SubStorages { get; private set; }
+
+        public IEnumerable<SubStorage> Execute()
+        {
+            var subStorages = new List<SubStorage>();
+
+            if (this.Transforms == null || !this.Transforms.Any())
+            {
+                this.Messaging.Write(WindowsInstallerBackendErrors.PatchWithoutTransforms());
+                return subStorages;
+            }
+
+            var summaryInfo = this.ExtractPatchSummaryInfo();
+
+            var section = this.Intermediate.Sections.First();
+
+            var symbols = this.Intermediate.Sections.SelectMany(s => s.Symbols).ToList();
+
+            // Get the patch id from the WixPatchId symbol.
+            var patchSymbol = symbols.OfType<WixPatchSymbol>().FirstOrDefault();
+
+            if (String.IsNullOrEmpty(patchSymbol.Id?.Id))
+            {
+                this.Messaging.Write(WindowsInstallerBackendErrors.ExpectedPatchIdInWixMsp());
+                return subStorages;
+            }
+
+            if (String.IsNullOrEmpty(patchSymbol.ClientPatchId))
+            {
+                this.Messaging.Write(WindowsInstallerBackendErrors.ExpectedClientPatchIdInWixMsp());
+                return subStorages;
+            }
+
+            // enumerate patch.Media to map diskId to Media row
+            var patchMediaByDiskId = symbols.OfType<MediaSymbol>().ToDictionary(t => t.DiskId);
+
+            if (patchMediaByDiskId.Count == 0)
+            {
+                this.Messaging.Write(WindowsInstallerBackendErrors.ExpectedMediaRowsInWixMsp());
+                return subStorages;
+            }
+
+            // populate MSP summary information
+            var patchMetadata = this.PopulateSummaryInformation(summaryInfo, symbols, patchSymbol);
+
+            // enumerate transforms
+            var productCodes = new SortedSet<string>();
+            var transformNames = new List<string>();
+            var validTransform = new List<Tuple<string, WindowsInstallerData>>();
+
+            var baselineSymbolsById = symbols.OfType<WixPatchBaselineSymbol>().ToDictionary(t => t.Id.Id);
+
+            foreach (var mainTransform in this.Transforms)
+            {
+                // Validate the transform doesn't break any patch specific rules.
+                this.Validate(mainTransform);
+
+                // ensure consistent File.Sequence within each Media
+                var baselineSymbol = baselineSymbolsById[mainTransform.Baseline];
+                var mediaSymbol = patchMediaByDiskId[baselineSymbol.DiskId];
+
+                // Ensure that files are sequenced after the last file in any transform.
+                if (mainTransform.Transform.Tables.TryGetTable("Media", out var transformMediaTable))
+                {
+                    foreach (MediaRow transformMediaRow in transformMediaTable.Rows)
+                    {
+                        if (!mediaSymbol.LastSequence.HasValue || mediaSymbol.LastSequence < transformMediaRow.LastSequence)
+                        {
+                            // The Binder will pre-increment the sequence.
+                            mediaSymbol.LastSequence = transformMediaRow.LastSequence;
+                        }
+                    }
+                }
+
+                // Use the Media/@DiskId if greater than the last sequence for backward compatibility.
+                if (!mediaSymbol.LastSequence.HasValue || mediaSymbol.LastSequence < mediaSymbol.DiskId)
+                {
+                    mediaSymbol.LastSequence = mediaSymbol.DiskId;
+                }
+
+                // Ignore media table in the transform.
+                mainTransform.Transform.Tables.Remove("Media");
+                mainTransform.Transform.Tables.Remove("MsiDigitalSignature");
+
+                var pairedTransform = this.BuildPairedTransform(summaryInfo, patchMetadata, patchSymbol, mainTransform.Transform, mediaSymbol, baselineSymbol, out var productCode);
+
+                productCode = productCode.ToUpperInvariant();
+                productCodes.Add(productCode);
+                validTransform.Add(Tuple.Create(productCode, mainTransform.Transform));
+
+                // Attach the main and paired transforms to the patch object.
+                var baseTransformName = mainTransform.Baseline;
+                var countSuffix = "." + validTransform.Count.ToString(CultureInfo.InvariantCulture);
+
+                if (PatchConstants.PairedPatchTransformPrefix.Length + baseTransformName.Length + countSuffix.Length > PatchConstants.MaxPatchTransformName)
+                {
+                    var trimmedTransformName = baseTransformName.Substring(0, PatchConstants.MaxPatchTransformName - PatchConstants.PairedPatchTransformPrefix.Length - countSuffix.Length);
+
+                    this.Messaging.Write(WindowsInstallerBackendWarnings.LongPatchBaselineIdTrimmed(baselineSymbol.SourceLineNumbers, baseTransformName, trimmedTransformName));
+
+                    baseTransformName = trimmedTransformName;
+                }
+
+                var transformName = baseTransformName + countSuffix;
+                subStorages.Add(new SubStorage(transformName, mainTransform.Transform));
+                transformNames.Add(":" + transformName);
+
+                var pairedTransformName = PatchConstants.PairedPatchTransformPrefix + transformName;
+                subStorages.Add(new SubStorage(pairedTransformName, pairedTransform));
+                transformNames.Add(":" + pairedTransformName);
+            }
+
+            if (validTransform.Count == 0)
+            {
+                this.Messaging.Write(WindowsInstallerBackendErrors.PatchWithoutValidTransforms());
+                return subStorages;
+            }
+
+            // Validate that a patch authored as removable is actually removable
+            if (patchMetadata.TryGetValue("AllowRemoval", out var allowRemoval) && allowRemoval.Value == "1")
+            {
+                var uninstallable = true;
+
+                foreach (var entry in validTransform)
+                {
+                    uninstallable &= this.CheckUninstallableTransform(entry.Item1, entry.Item2);
+                }
+
+                if (!uninstallable)
+                {
+                    this.Messaging.Write(WindowsInstallerBackendErrors.PatchNotRemovable());
+                    return subStorages;
+                }
+            }
+
+            // Finish filling tables with transform-dependent data.
+            productCodes = FinalizePatchProductCodes(symbols, productCodes);
+
+            // Semicolon delimited list of the product codes that can accept the patch.
+            summaryInfo.Add(SummaryInformationType.PatchProductCodes, new SummaryInformationSymbol(patchSymbol.SourceLineNumbers)
+            {
+                PropertyId = SummaryInformationType.PatchProductCodes,
+                Value = String.Join(";", productCodes)
+            });
+
+            // Semicolon delimited list of transform substorage names in the order they are applied.
+            summaryInfo.Add(SummaryInformationType.TransformNames, new SummaryInformationSymbol(patchSymbol.SourceLineNumbers)
+            {
+                PropertyId = SummaryInformationType.TransformNames,
+                Value = String.Join(";", transformNames)
+            });
+
+            // Put the summary information that was extracted back in now that it is updated.
+            foreach (var readSummaryInfo in summaryInfo.Values.OrderBy(s => s.PropertyId))
+            {
+                section.AddSymbol(readSummaryInfo);
+            }
+
+            this.SubStorages = subStorages;
+
+            return subStorages;
+        }
+
+        private Dictionary<SummaryInformationType, SummaryInformationSymbol> ExtractPatchSummaryInfo()
+        {
+            var result = new Dictionary<SummaryInformationType, SummaryInformationSymbol>();
+
+            foreach (var section in this.Intermediate.Sections)
+            {
+                // Remove all summary information from the symbols and remember those that
+                // are not calculated or reserved.
+                foreach (var patchSummaryInfo in section.Symbols.OfType<SummaryInformationSymbol>().ToList())
+                {
+                    section.RemoveSymbol(patchSummaryInfo);
+
+                    if (patchSummaryInfo.PropertyId != SummaryInformationType.PatchProductCodes &&
+                        patchSummaryInfo.PropertyId != SummaryInformationType.PatchCode &&
+                        patchSummaryInfo.PropertyId != SummaryInformationType.PatchInstallerRequirement &&
+                        patchSummaryInfo.PropertyId != SummaryInformationType.Reserved11 &&
+                        patchSummaryInfo.PropertyId != SummaryInformationType.Reserved14 &&
+                        patchSummaryInfo.PropertyId != SummaryInformationType.Reserved16)
+                    {
+                        result.Add(patchSummaryInfo.PropertyId, patchSummaryInfo);
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        private Dictionary<string, MsiPatchMetadataSymbol> PopulateSummaryInformation(Dictionary<SummaryInformationType, SummaryInformationSymbol> summaryInfo, List<IntermediateSymbol> symbols, WixPatchSymbol patchSymbol)
+        {
+            // PID_CODEPAGE
+            if (!summaryInfo.ContainsKey(SummaryInformationType.Codepage))
+            {
+                // Set the code page by default to the same code page for the
+                // string pool in the database.
+                AddSummaryInformation(SummaryInformationType.Codepage, patchSymbol.Codepage?.ToString(CultureInfo.InvariantCulture) ?? "0", patchSymbol.SourceLineNumbers);
+            }
+
+            // GUID patch code for the patch.
+            AddSummaryInformation(SummaryInformationType.PatchCode, patchSymbol.Id.Id, patchSymbol.SourceLineNumbers);
+
+            // Indicates the minimum Windows Installer version that is required to install the patch.
+            AddSummaryInformation(SummaryInformationType.PatchInstallerRequirement, ((int)SummaryInformation.InstallerRequirement.Version31).ToString(CultureInfo.InvariantCulture), patchSymbol.SourceLineNumbers);
+
+            if (!summaryInfo.ContainsKey(SummaryInformationType.Security))
+            {
+                AddSummaryInformation(SummaryInformationType.Security, "4", patchSymbol.SourceLineNumbers); // Read-only enforced;
+            }
+
+            // Use authored comments or default to display name.
+            MsiPatchMetadataSymbol commentsSymbol = null;
+
+            var metadataSymbols = symbols.OfType<MsiPatchMetadataSymbol>().Where(t => String.IsNullOrEmpty(t.Company)).ToDictionary(t => t.Property);
+
+            if (!summaryInfo.ContainsKey(SummaryInformationType.Title) &&
+                metadataSymbols.TryGetValue("DisplayName", out var displayName))
+            {
+                AddSummaryInformation(SummaryInformationType.Title, displayName.Value, displayName.SourceLineNumbers);
+
+                // Default comments to use display name as-is.
+                commentsSymbol = displayName;
+            }
+
+            // TODO: This code below seems unnecessary given the codepage is set at the top of this method.
+            //if (!summaryInfo.ContainsKey(SummaryInformationType.Codepage) &&
+            //    metadataValues.TryGetValue("CodePage", out var codepage))
+            //{
+            //    AddSummaryInformation(SummaryInformationType.Codepage, codepage);
+            //}
+
+            if (!summaryInfo.ContainsKey(SummaryInformationType.PatchPackageName) &&
+                metadataSymbols.TryGetValue("Description", out var description))
+            {
+                AddSummaryInformation(SummaryInformationType.PatchPackageName, description.Value, description.SourceLineNumbers);
+            }
+
+            if (!summaryInfo.ContainsKey(SummaryInformationType.Author) &&
+                metadataSymbols.TryGetValue("ManufacturerName", out var manufacturer))
+            {
+                AddSummaryInformation(SummaryInformationType.Author, manufacturer.Value, manufacturer.SourceLineNumbers);
+            }
+
+            // Special metadata marshalled through the build.
+            //var wixMetadataValues = symbols.OfType<WixPatchMetadataSymbol>().ToDictionary(t => t.Id.Id, t => t.Value);
+
+            //if (wixMetadataValues.TryGetValue("Comments", out var wixComments))
+            if (metadataSymbols.TryGetValue("Comments", out var wixComments))
+            {
+                commentsSymbol = wixComments;
+            }
+
+            // Write the package comments to summary info.
+            if (!summaryInfo.ContainsKey(SummaryInformationType.Comments) &&
+                commentsSymbol != null)
+            {
+                AddSummaryInformation(SummaryInformationType.Comments, commentsSymbol.Value, commentsSymbol.SourceLineNumbers);
+            }
+
+            return metadataSymbols;
+
+            void AddSummaryInformation(SummaryInformationType type, string value, SourceLineNumber sourceLineNumber)
+            {
+                summaryInfo.Add(type, new SummaryInformationSymbol(sourceLineNumber)
+                {
+                    PropertyId = type,
+                    Value = value
+                });
+            }
+        }
+
+        /// <summary>
+        /// Ensure transform is uninstallable.
+        /// </summary>
+        /// <param name="productCode">Product code in transform.</param>
+        /// <param name="transform">Transform generated by torch.</param>
+        /// <returns>True if the transform is uninstallable</returns>
+        private bool CheckUninstallableTransform(string productCode, WindowsInstallerData transform)
+        {
+            var success = true;
+
+            foreach (var tableName in PatchUninstallBreakingTables)
+            {
+                if (transform.TryGetTable(tableName, out var table))
+                {
+                    foreach (var row in table.Rows.Where(r => r.Operation == RowOperation.Add))
+                    {
+                        success = false;
+
+                        var primaryKey = row.GetPrimaryKey('/') ?? String.Empty;
+
+                        this.Messaging.Write(WindowsInstallerBackendErrors.NewRowAddedInTable(row.SourceLineNumbers, productCode, table.Name, primaryKey));
+                    }
+                }
+            }
+
+            return success;
+        }
+
+        private void Validate(PatchTransform patchTransform)
+        {
+            var transformPath = patchTransform.Baseline;
+            var transform = patchTransform.Transform;
+
+            // Changing the ProdocutCode in a patch transform is not recommended.
+            if (transform.TryGetTable("Property", out var propertyTable))
+            {
+                foreach (var row in propertyTable.Rows)
+                {
+                    // Only interested in modified rows; fast check.
+                    if (RowOperation.Modify == row.Operation &&
+                        "ProductCode".Equals(row.FieldAsString(0), StringComparison.Ordinal))
+                    {
+                        this.Messaging.Write(WindowsInstallerBackendWarnings.MajorUpgradePatchNotRecommended());
+                    }
+                }
+            }
+
+            // If there is nothing in the component table we can return early because the remaining checks are component based.
+            if (!transform.TryGetTable("Component", out var componentTable))
+            {
+                return;
+            }
+
+            // Index Feature table row operations
+            var featureOps = new Dictionary<string, RowOperation>();
+            if (transform.TryGetTable("Feature", out var featureTable))
+            {
+                foreach (var row in featureTable.Rows)
+                {
+                    featureOps[row.FieldAsString(0)] = row.Operation;
+                }
+            }
+
+            // Index Component table and check for keypath modifications
+            var componentKeyPath = new Dictionary<string, string>();
+            var deletedComponent = new Dictionary<string, Row>();
+            foreach (var row in componentTable.Rows)
+            {
+                var id = row.FieldAsString(0);
+                var keypath = row.FieldAsString(5) ?? String.Empty;
+
+                componentKeyPath.Add(id, keypath);
+
+                if (RowOperation.Delete == row.Operation)
+                {
+                    deletedComponent.Add(id, row);
+                }
+                else if (RowOperation.Modify == row.Operation)
+                {
+                    if (row.Fields[1].Modified)
+                    {
+                        // Changing the guid of a component is equal to deleting the old one and adding a new one.
+                        deletedComponent.Add(id, row);
+                    }
+
+                    // If the keypath is modified its an error
+                    if (row.Fields[5].Modified)
+                    {
+                        this.Messaging.Write(WindowsInstallerBackendErrors.InvalidKeypathChange(row.SourceLineNumbers, id, transformPath));
+                    }
+                }
+            }
+
+            // Verify changes in the file table
+            if (transform.TryGetTable("File", out var fileTable))
+            {
+                var componentWithChangedKeyPath = new Dictionary<string, string>();
+                foreach (FileRow row in fileTable.Rows)
+                {
+                    if (RowOperation.None == row.Operation)
+                    {
+                        continue;
+                    }
+
+                    var fileId = row.File;
+                    var componentId = row.Component;
+
+                    // If this file is the keypath of a component
+                    if (componentKeyPath.TryGetValue(componentId, out var keyPath) && keyPath.Equals(fileId, StringComparison.Ordinal))
+                    {
+                        if (row.Fields[2].Modified)
+                        {
+                            // You can't change the filename of a file that is the keypath of a component.
+                            this.Messaging.Write(WindowsInstallerBackendErrors.InvalidKeypathChange(row.SourceLineNumbers, componentId, transformPath));
+                        }
+
+                        if (!componentWithChangedKeyPath.ContainsKey(componentId))
+                        {
+                            componentWithChangedKeyPath.Add(componentId, fileId);
+                        }
+                    }
+
+                    if (RowOperation.Delete == row.Operation)
+                    {
+                        // If the file is removed from a component that is not deleted.
+                        if (!deletedComponent.ContainsKey(componentId))
+                        {
+                            var foundRemoveFileEntry = false;
+                            var filename = this.BackendHelper.GetMsiFileName(row.FieldAsString(2), false, true);
+
+                            if (transform.TryGetTable("RemoveFile", out var removeFileTable))
+                            {
+                                foreach (var removeFileRow in removeFileTable.Rows)
+                                {
+                                    if (RowOperation.Delete == removeFileRow.Operation)
+                                    {
+                                        continue;
+                                    }
+
+                                    if (componentId == removeFileRow.FieldAsString(1))
+                                    {
+                                        // Check if there is a RemoveFile entry for this file
+                                        if (null != removeFileRow[2])
+                                        {
+                                            var removeFileName = this.BackendHelper.GetMsiFileName(removeFileRow.FieldAsString(2), false, true);
+
+                                            // Convert the MSI format for a wildcard string to Regex format.
+                                            removeFileName = removeFileName.Replace('.', '|').Replace('?', '.').Replace("*", ".*").Replace("|", "\\.");
+
+                                            var regex = new Regex(removeFileName, RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+                                            if (regex.IsMatch(filename))
+                                            {
+                                                foundRemoveFileEntry = true;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (!foundRemoveFileEntry)
+                            {
+                                this.Messaging.Write(WindowsInstallerBackendWarnings.InvalidRemoveFile(row.SourceLineNumbers, fileId, componentId));
+                            }
+                        }
+                    }
+                }
+            }
+
+            var featureComponentsTable = transform.Tables["FeatureComponents"];
+
+            if (0 < deletedComponent.Count)
+            {
+                // Index FeatureComponents table.
+                var featureComponents = new Dictionary<string, List<string>>();
+
+                if (null != featureComponentsTable)
+                {
+                    foreach (var row in featureComponentsTable.Rows)
+                    {
+                        var componentId = row.FieldAsString(1);
+
+                        if (!featureComponents.TryGetValue(componentId, out var features))
+                        {
+                            features = new List<string>();
+                            featureComponents.Add(componentId, features);
+                        }
+
+                        features.Add(row.FieldAsString(0));
+                    }
+                }
+
+                // Check to make sure if a component was deleted, the feature was too.
+                foreach (var entry in deletedComponent)
+                {
+                    if (featureComponents.TryGetValue(entry.Key, out var features))
+                    {
+                        foreach (var featureId in features)
+                        {
+                            if (!featureOps.TryGetValue(featureId, out var op) || op != RowOperation.Delete)
+                            {
+                                // The feature was not deleted.
+                                this.Messaging.Write(WindowsInstallerBackendErrors.InvalidRemoveComponent(((Row)entry.Value).SourceLineNumbers, entry.Key.ToString(), featureId, transformPath));
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Warn if new components are added to existing features
+            if (null != featureComponentsTable)
+            {
+                foreach (var row in featureComponentsTable.Rows)
+                {
+                    if (RowOperation.Add == row.Operation)
+                    {
+                        // Check if the feature is in the Feature table
+                        var feature_ = row.FieldAsString(0);
+                        var component_ = row.FieldAsString(1);
+
+                        // Features may not be present if not referenced
+                        if (!featureOps.ContainsKey(feature_) || RowOperation.Add != (RowOperation)featureOps[feature_])
+                        {
+                            this.Messaging.Write(WindowsInstallerBackendWarnings.NewComponentAddedToExistingFeature(row.SourceLineNumbers, component_, feature_, transformPath));
+                        }
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Create the #transform for the given main transform.
+        /// </summary>
+        private WindowsInstallerData BuildPairedTransform(Dictionary<SummaryInformationType, SummaryInformationSymbol> summaryInfo, Dictionary<string, MsiPatchMetadataSymbol> patchMetadata, WixPatchSymbol patchIdSymbol, WindowsInstallerData mainTransform, MediaSymbol mediaSymbol, WixPatchBaselineSymbol baselineSymbol, out string productCode)
+        {
+            productCode = null;
+
+            var pairedTransform = new WindowsInstallerData(null)
+            {
+                Type = OutputType.Transform,
+                Codepage = mainTransform.Codepage
+            };
+
+            // lookup productVersion property to correct summaryInformation
+            var newProductVersion = mainTransform.Tables["Property"]?.Rows.FirstOrDefault(r => r.FieldAsString(0) == "ProductVersion")?.FieldAsString(1);
+
+            var mainSummaryTable = mainTransform.Tables["_SummaryInformation"];
+            var mainSummaryRows = mainSummaryTable.Rows.ToDictionary(r => r.FieldAsInteger(0));
+
+            var baselineValidationFlags = ((int)baselineSymbol.ValidationFlags).ToString(CultureInfo.InvariantCulture);
+
+            if (!mainSummaryRows.ContainsKey((int)SummaryInformationType.TransformValidationFlags))
+            {
+                var mainSummaryRow = mainSummaryTable.CreateRow(baselineSymbol.SourceLineNumbers);
+                mainSummaryRow[0] = (int)SummaryInformationType.TransformValidationFlags;
+                mainSummaryRow[1] = baselineValidationFlags;
+            }
+
+            // copy summary information from core transform
+            var pairedSummaryTable = pairedTransform.EnsureTable(this.tableDefinitions["_SummaryInformation"]);
+
+            foreach (var mainSummaryRow in mainSummaryTable.Rows)
+            {
+                var type = (SummaryInformationType)mainSummaryRow.FieldAsInteger(0);
+                var value = mainSummaryRow.FieldAsString(1);
+                switch (type)
+                {
+                    case SummaryInformationType.TransformProductCodes:
+                        var propertyData = value.Split(';');
+                        var oldProductVersion = propertyData[0].Substring(38);
+                        var upgradeCode = propertyData[2];
+                        productCode = propertyData[0].Substring(0, 38);
+
+                        if (newProductVersion == null)
+                        {
+                            newProductVersion = oldProductVersion;
+                        }
+
+                        // Force mainTranform to 'old;new;upgrade' and pairedTransform to 'new;new;upgrade'
+                        mainSummaryRow[1] = String.Concat(productCode, oldProductVersion, ';', productCode, newProductVersion, ';', upgradeCode);
+                        value = String.Concat(productCode, newProductVersion, ';', productCode, newProductVersion, ';', upgradeCode);
+                        break;
+                    case SummaryInformationType.TransformValidationFlags: // use validation flags authored into the patch XML.
+                        value = baselineValidationFlags;
+                        mainSummaryRow[1] = value;
+                        break;
+                }
+
+                var pairedSummaryRow = pairedSummaryTable.CreateRow(mainSummaryRow.SourceLineNumbers);
+                pairedSummaryRow[0] = mainSummaryRow[0];
+                pairedSummaryRow[1] = value;
+            }
+
+            if (productCode == null)
+            {
+                this.Messaging.Write(WindowsInstallerBackendErrors.CouldNotDetermineProductCodeFromTransformSummaryInfo());
+                return null;
+            }
+
+            // Copy File table
+            if (mainTransform.Tables.TryGetTable("File", out var mainFileTable) && 0 < mainFileTable.Rows.Count)
+            {
+                var pairedFileTable = pairedTransform.EnsureTable(mainFileTable.Definition);
+
+                foreach (var mainFileRow in mainFileTable.Rows.Cast<FileRow>())
+                {
+                    // Set File.Sequence to non null to satisfy transform bind and suppress any
+                    // change to File.Sequence to avoid bloat.
+                    mainFileRow.Sequence = 1;
+                    mainFileRow.Fields[7].Modified = false;
+
+                    // Override authored media to the media provided in the patch.
+                    mainFileRow.DiskId = mediaSymbol.DiskId;
+
+                    // Delete's don't need rows in the paired transform.
+                    if (mainFileRow.Operation == RowOperation.Delete)
+                    {
+                        continue;
+                    }
+
+                    var pairedFileRow = (FileRow)pairedFileTable.CreateRow(mainFileRow.SourceLineNumbers);
+                    pairedFileRow.Operation = RowOperation.Modify;
+                    mainFileRow.CopyTo(pairedFileRow);
+
+                    // Force modified File rows to appear in the transform.
+                    switch (mainFileRow.Operation)
+                    {
+                        case RowOperation.Modify:
+                        case RowOperation.Add:
+                            pairedFileRow.Attributes |= WindowsInstallerConstants.MsidbFileAttributesPatchAdded;
+                            pairedFileRow.Fields[6].Modified = true;
+                            pairedFileRow.Operation = mainFileRow.Operation;
+                            break;
+                        default:
+                            pairedFileRow.Fields[6].Modified = false;
+                            break;
+                    }
+                }
+            }
+
+            // Add Media row to pairedTransform
+            var pairedMediaTable = pairedTransform.EnsureTable(this.tableDefinitions["Media"]);
+            var pairedMediaRow = (MediaRow)pairedMediaTable.CreateRow(mediaSymbol.SourceLineNumbers);
+            pairedMediaRow.Operation = RowOperation.Add;
+            pairedMediaRow.DiskId = mediaSymbol.DiskId;
+            pairedMediaRow.LastSequence = mediaSymbol.LastSequence ?? 0;
+            pairedMediaRow.DiskPrompt = mediaSymbol.DiskPrompt;
+            pairedMediaRow.Cabinet = mediaSymbol.Cabinet;
+            pairedMediaRow.VolumeLabel = mediaSymbol.VolumeLabel;
+            pairedMediaRow.Source = mediaSymbol.Source;
+
+            // Add PatchPackage for this Media
+            var pairedPackageTable = pairedTransform.EnsureTable(this.tableDefinitions["PatchPackage"]);
+            pairedPackageTable.Operation = TableOperation.Add;
+            var pairedPackageRow = pairedPackageTable.CreateRow(mediaSymbol.SourceLineNumbers);
+            pairedPackageRow.Operation = RowOperation.Add;
+            pairedPackageRow[0] = patchIdSymbol.Id.Id;
+            pairedPackageRow[1] = mediaSymbol.DiskId;
+
+            // Add the property to the patch transform's Property table.
+            var pairedPropertyTable = pairedTransform.EnsureTable(this.tableDefinitions["Property"]);
+            pairedPropertyTable.Operation = TableOperation.Add;
+
+            // Add property to both identify client patches and whether those patches are removable or not
+            patchMetadata.TryGetValue("AllowRemoval", out var allowRemovalSymbol);
+
+            var pairedPropertyRow = pairedPropertyTable.CreateRow(allowRemovalSymbol?.SourceLineNumbers);
+            pairedPropertyRow.Operation = RowOperation.Add;
+            pairedPropertyRow[0] = String.Concat(patchIdSymbol.ClientPatchId, ".AllowRemoval");
+            pairedPropertyRow[1] = allowRemovalSymbol?.Value ?? "0";
+
+            // Add this patch code GUID to the patch transform to identify
+            // which patches are installed, including in multi-patch
+            // installations.
+            pairedPropertyRow = pairedPropertyTable.CreateRow(patchIdSymbol.SourceLineNumbers);
+            pairedPropertyRow.Operation = RowOperation.Add;
+            pairedPropertyRow[0] = String.Concat(patchIdSymbol.ClientPatchId, ".PatchCode");
+            pairedPropertyRow[1] = patchIdSymbol.Id.Id;
+
+            // Add PATCHNEWPACKAGECODE to apply to admin layouts.
+            pairedPropertyRow = pairedPropertyTable.CreateRow(patchIdSymbol.SourceLineNumbers);
+            pairedPropertyRow.Operation = RowOperation.Add;
+            pairedPropertyRow[0] = "PATCHNEWPACKAGECODE";
+            pairedPropertyRow[1] = patchIdSymbol.Id.Id;
+
+            // Add PATCHNEWSUMMARYCOMMENTS and PATCHNEWSUMMARYSUBJECT to apply to admin layouts.
+            if (summaryInfo.TryGetValue(SummaryInformationType.Subject, out var subjectSymbol))
+            {
+                pairedPropertyRow = pairedPropertyTable.CreateRow(subjectSymbol.SourceLineNumbers);
+                pairedPropertyRow.Operation = RowOperation.Add;
+                pairedPropertyRow[0] = "PATCHNEWSUMMARYSUBJECT";
+                pairedPropertyRow[1] = subjectSymbol.Value;
+            }
+
+            if (summaryInfo.TryGetValue(SummaryInformationType.Comments, out var commentsSymbol))
+            {
+                pairedPropertyRow = pairedPropertyTable.CreateRow(commentsSymbol.SourceLineNumbers);
+                pairedPropertyRow.Operation = RowOperation.Add;
+                pairedPropertyRow[0] = "PATCHNEWSUMMARYCOMMENTS";
+                pairedPropertyRow[1] = commentsSymbol.Value;
+            }
+
+            return pairedTransform;
+        }
+
+        private static SortedSet<string> FinalizePatchProductCodes(List<IntermediateSymbol> symbols, SortedSet<string> productCodes)
+        {
+            var patchTargetSymbols = symbols.OfType<WixPatchTargetSymbol>().ToList();
+
+            if (patchTargetSymbols.Any())
+            {
+                var targets = new SortedSet<string>();
+                var replace = true;
+                foreach (var wixPatchTargetRow in patchTargetSymbols)
+                {
+                    var target = wixPatchTargetRow.ProductCode.ToUpperInvariant();
+                    if (target == "*")
+                    {
+                        replace = false;
+                    }
+                    else
+                    {
+                        targets.Add(target);
+                    }
+                }
+
+                // Replace the target ProductCodes with the authored list.
+                if (replace)
+                {
+                    productCodes = targets;
+                }
+                else
+                {
+                    // Copy the authored target ProductCodes into the list.
+                    foreach (var target in targets)
+                    {
+                        productCodes.Add(target);
+                    }
+                }
+            }
+
+            return productCodes;
+        }
+    }
+}

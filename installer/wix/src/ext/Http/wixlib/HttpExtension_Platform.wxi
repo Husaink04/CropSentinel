@@ -1,0 +1,58 @@
+﻿<!-- Copyright (c) .NET Foundation and contributors. All rights reserved. Licensed under the Microsoft Reciprocal License. See LICENSE.TXT file in the project root for full license information. -->
+
+
+<Include xmlns="http://wixtoolset.org/schemas/v4/wxs">
+    <?include ..\..\caDecor.wxi ?>
+
+    <Fragment>
+        <UIRef Id="WixHttpErrors" />
+        <UI>
+            <ProgressText Action="$(var.Prefix)SchedHttpUrlReservationsInstall$(var.Suffix)" Message="!(loc.WixSchedHttpUrlReservationsInstall)" />
+            <ProgressText Action="$(var.Prefix)SchedHttpUrlReservationsUninstall$(var.Suffix)" Message="!(loc.WixSchedHttpUrlReservationsUninstall)" />
+            <ProgressText Action="$(var.Prefix)RollbackHttpUrlReservationsInstall$(var.Suffix)" Message="!(loc.WixRollbackHttpUrlReservationsInstall)" />
+            <ProgressText Action="$(var.Prefix)ExecHttpUrlReservationsInstall$(var.Suffix)" Message="!(loc.WixExecHttpUrlReservationsInstall)" />
+            <ProgressText Action="$(var.Prefix)RollbackHttpUrlReservationsUninstall$(var.Suffix)" Message="!(loc.WixRollbackHttpUrlReservationsUninstall)" />
+            <ProgressText Action="$(var.Prefix)ExecHttpUrlReservationsUninstall$(var.Suffix)" Message="!(loc.WixExecHttpUrlReservationsUninstall)" />
+        </UI>
+
+        <CustomAction Id="$(var.Prefix)SchedHttpUrlReservationsInstall$(var.Suffix)" DllEntry="SchedHttpUrlReservationsInstall" Execute="immediate" Return="check" SuppressModularization="yes" BinaryRef="$(var.Prefix6)HttpCA$(var.Suffix)" />
+        <CustomAction Id="$(var.Prefix)SchedHttpUrlReservationsUninstall$(var.Suffix)" DllEntry="SchedHttpUrlReservationsUninstall" Execute="immediate" Return="check" SuppressModularization="yes" BinaryRef="$(var.Prefix6)HttpCA$(var.Suffix)" />
+        <CustomAction Id="$(var.Prefix)RollbackHttpUrlReservationsInstall$(var.Suffix)" DllEntry="ExecHttpUrlReservations" Execute="rollback" Impersonate="no" Return="check" SuppressModularization="yes" BinaryRef="$(var.Prefix6)HttpCA$(var.Suffix)" />
+        <CustomAction Id="$(var.Prefix)ExecHttpUrlReservationsInstall$(var.Suffix)" DllEntry="ExecHttpUrlReservations" Execute="deferred" Impersonate="no" Return="check" SuppressModularization="yes" BinaryRef="$(var.Prefix6)HttpCA$(var.Suffix)" />
+        <CustomAction Id="$(var.Prefix)RollbackHttpUrlReservationsUninstall$(var.Suffix)" DllEntry="ExecHttpUrlReservations" Execute="rollback" Impersonate="no" Return="check" SuppressModularization="yes" BinaryRef="$(var.Prefix6)HttpCA$(var.Suffix)" />
+        <CustomAction Id="$(var.Prefix)ExecHttpUrlReservationsUninstall$(var.Suffix)" DllEntry="ExecHttpUrlReservations" Execute="deferred" Impersonate="no" Return="check" SuppressModularization="yes" BinaryRef="$(var.Prefix6)HttpCA$(var.Suffix)" />
+
+        <InstallExecuteSequence>
+            <Custom Action="virtual $(var.Prefix)SchedHttpUrlReservationsUninstall$(var.Suffix)" Before="RemoveFiles" />
+            <Custom Action="virtual $(var.Prefix)SchedHttpUrlReservationsInstall$(var.Suffix)" After="InstallFiles" />
+        </InstallExecuteSequence>
+    </Fragment>
+
+    <Fragment>
+        <UIRef Id="WixHttpErrors" />
+        <UI>
+            <ProgressText Action="$(var.Prefix6)SchedHttpCertificatesInstall$(var.Suffix)" Message="!(loc.SchedHttpCertificatesInstall)" />
+            <ProgressText Action="$(var.Prefix6)SchedHttpCertificatesUninstall$(var.Suffix)" Message="!(loc.SchedHttpCertificatesUninstall)" />
+            <ProgressText Action="$(var.Prefix6)RollbackHttpCertificatesInstall$(var.Suffix)" Message="!(loc.RollbackHttpCertificatesInstall)" />
+            <ProgressText Action="$(var.Prefix6)ExecHttpCertificatesInstall$(var.Suffix)" Message="!(loc.ExecHttpCertificatesInstall)" />
+            <ProgressText Action="$(var.Prefix6)RollbackHttpCertificatesUninstall$(var.Suffix)" Message="!(loc.RollbackHttpCertificatesUninstall)" />
+            <ProgressText Action="$(var.Prefix6)ExecHttpCertificatesUninstall$(var.Suffix)" Message="!(loc.ExecHttpCertificatesUninstall)" />
+        </UI>
+
+        <CustomAction Id="$(var.Prefix6)SchedHttpCertificatesInstall$(var.Suffix)" BinaryRef="$(var.Prefix6)HttpCA$(var.Suffix)" DllEntry="SchedHttpCertificatesInstall" Execute="immediate" Return="check" SuppressModularization="yes" />
+        <CustomAction Id="$(var.Prefix6)SchedHttpCertificatesUninstall$(var.Suffix)" BinaryRef="$(var.Prefix6)HttpCA$(var.Suffix)" DllEntry="SchedHttpCertificatesUninstall" Execute="immediate" Return="check" SuppressModularization="yes" />
+        <CustomAction Id="$(var.Prefix6)RollbackHttpCertificatesInstall$(var.Suffix)" BinaryRef="$(var.Prefix6)HttpCA$(var.Suffix)" DllEntry="ExecHttpCertificates" Execute="rollback" Impersonate="no" Return="check" SuppressModularization="yes" />
+        <CustomAction Id="$(var.Prefix6)ExecHttpCertificatesInstall$(var.Suffix)" BinaryRef="$(var.Prefix6)HttpCA$(var.Suffix)" DllEntry="ExecHttpCertificates" Execute="deferred" Impersonate="no" Return="check" SuppressModularization="yes" />
+        <CustomAction Id="$(var.Prefix6)RollbackHttpCertificatesUninstall$(var.Suffix)" BinaryRef="$(var.Prefix6)HttpCA$(var.Suffix)" DllEntry="ExecHttpCertificates" Execute="rollback" Impersonate="no" Return="check" SuppressModularization="yes" />
+        <CustomAction Id="$(var.Prefix6)ExecHttpCertificatesUninstall$(var.Suffix)" BinaryRef="$(var.Prefix6)HttpCA$(var.Suffix)" DllEntry="ExecHttpCertificates" Execute="deferred" Impersonate="no" Return="check" SuppressModularization="yes" />
+
+        <InstallExecuteSequence>
+            <Custom Action="virtual $(var.Prefix6)SchedHttpCertificatesInstall$(var.Suffix)" Before="RemoveFiles" />
+            <Custom Action="virtual $(var.Prefix6)SchedHttpCertificatesUninstall$(var.Suffix)" After="InstallFiles" />
+        </InstallExecuteSequence>
+    </Fragment>
+
+    <Fragment>
+        <Binary Id="$(var.Prefix6)HttpCA$(var.Suffix)" SourceFile="!(bindpath.$(var.platform))httpca.dll" />
+    </Fragment>
+</Include>

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(WixMSBuildProps)" />
+
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">x86</Platform>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <OutputType>Bundle</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <BindInputPaths Include="..\MsiPackage\data" />
+  </ItemGroup>
+
+  <Import Project="$(WixTargetsPath)" />
+
+  <Target Name="SignBundleEngine">
+    <Message Importance="high" Text="TEST: SignBundleEngine: @(SignBundleEngine)" />
+  </Target>
+
+  <Target Name="SignBundle">
+    <Message Importance="high" Text="TEST: SignBundle: @(SignBundle)" />
+  </Target>
+</Project>

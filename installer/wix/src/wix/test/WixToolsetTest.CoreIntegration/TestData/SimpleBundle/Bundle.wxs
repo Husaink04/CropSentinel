@@ -1,0 +1,13 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Bundle Name="!(loc.BundleName)" Manufacturer="Example Corporation" Version="!(bind.packageVersion.test.msi)" UpgradeCode="047730a5-30fe-4a62-a520-da9381b8226a"
+          InProgressName="!(loc.BundleInProgressName)" IconSourceFile="test.ico">
+    <BootstrapperApplication SourceFile="fakeba.dll" />
+
+    <Chain>
+      <MsiPackage SourceFile="test.msi">
+        <MsiProperty Name="TEST" Value="1" />
+        <MsiProperty Name="TESTBLANK" Value="" />
+      </MsiPackage>
+    </Chain>
+  </Bundle>
+</Wix>

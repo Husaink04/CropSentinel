@@ -1,0 +1,27 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+    <Package Name="XmlConfig" Language="1033" Version="1.0.0.0" Manufacturer="Example Corporation" UpgradeCode="047730a5-30fe-4a62-a520-da9381b8226a">
+        <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+
+        <Feature Id="ProductFeature" Title="XmlConfig">
+            <Component Directory="INSTALLFOLDER">
+                <File Id="MyXmlFile" Source="my.xml" />
+            </Component>
+            
+            <Component Id="Del" Directory="INSTALLFOLDER" Guid="3613414c-11f5-40fa-a1f1-a0ba722a6895">
+                <util:XmlConfig Id="DelElement" File="[#MyXmlFile]" Action="delete" Node="element" VerifyPath="grandchild1" ElementPath="//root/child1" On="install" />
+            </Component>
+
+            <Component Id="Add" Directory="INSTALLFOLDER" Guid="30A9FF8B-7AC8-47F3-BB24-9EA81AA38856">
+                <util:XmlConfig Id="AddElement" File="[#MyXmlFile]" Action="create" Node="element" ElementPath="//root/child2" Name="grandchild3" On="install" Sequence="2" />
+                <util:XmlConfig ElementId="AddElement" File="[#MyXmlFile]" Name="TheAttribute1" Value="AttributeValue1" Sequence="3" />
+                <util:XmlConfig Id="AddAttribute2" ElementId="AddElement" File="[INSTALLFOLDER]my.xml" Name="TheAttribute2" Value="AttributeValue2" Sequence="4" />
+            </Component>
+        </Feature>
+    </Package>
+
+    <Fragment>
+        <StandardDirectory Id="ProgramFilesFolder">
+            <Directory Id="INSTALLFOLDER" Name="XmlConfig" />
+        </StandardDirectory>
+    </Fragment>
+</Wix>

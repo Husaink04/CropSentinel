@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="WixToolset.Sdk">
+  <PropertyGroup>
+    <OutputType>Bundle</OutputType>
+    <OutputPath>$(PackageOutputPath)</OutputPath>
+    <SignOutput>true</SignOutput>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ThmViewerPackage\ThmViewerPackage.wixproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WixToolset.BootstrapperApplications.wixext" />
+  </ItemGroup>
+
+  <UsingTask TaskName="GenerateMetadata" AssemblyFile="$(BaseOutputPath)$(Configuration)\net472\MetadataTask.dll" />
+
+  <Target Name="GenerateMetadata" AfterTargets="AfterBuild">
+    <GenerateMetadata TargetFile="$(TargetPath)" WixpdbFile="$(TargetPdbPath)" />
+  </Target>
+</Project>

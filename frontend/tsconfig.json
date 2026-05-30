@@ -1,0 +1,57 @@
+{
+  // ----------------------------------------------------------------------------
+  // CropSentinel — TypeScript configuration (incremental migration mode)
+  // ----------------------------------------------------------------------------
+  // The codebase is currently plain JSX. This config lets us:
+  //   • add new files as .ts / .tsx and have them type-checked
+  //   • keep existing .jsx files working unchanged (allowJs + checkJs: false)
+  //   • turn strict mode on only for TS files, so the JS side stays relaxed
+  //
+  // Migration path for a page:
+  //   1. Rename pages/Foo.jsx  →  pages/Foo.tsx
+  //   2. Add prop + state types; fix any red squigglies
+  //   3. Done — other pages keep compiling as JSX
+  //
+  // To type-check from the CLI:  npx tsc --noEmit
+  // Vite handles the actual compilation via @vitejs/plugin-react + esbuild.
+  // ----------------------------------------------------------------------------
+  "compilerOptions": {
+    "target":                           "ES2022",
+    "lib":                              ["ES2022", "DOM", "DOM.Iterable"],
+    "module":                           "ESNext",
+    "moduleResolution":                 "bundler",
+    "jsx":                              "react-jsx",
+
+    // Interop with existing JSX files
+    "allowJs":                          true,
+    "checkJs":                          false,
+
+    // Strictness — on for .ts/.tsx, irrelevant for .jsx (checkJs is false)
+    "strict":                           true,
+    "noUnusedLocals":                   false,
+    "noUnusedParameters":               false,
+    "noFallthroughCasesInSwitch":       true,
+    "noImplicitReturns":                true,
+
+    // Module interop
+    "esModuleInterop":                  true,
+    "allowSyntheticDefaultImports":     true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule":                true,
+    "isolatedModules":                  true,
+
+    // Vite handles emit — tsc is type-check only
+    "noEmit":                           true,
+    "skipLibCheck":                     true,
+
+    // Nice-to-haves
+    "useDefineForClassFields":          true
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "src/**/*.js",
+    "src/**/*.jsx"
+  ],
+  "references": [{ "path": "./tsconfig.node.json" }]
+}

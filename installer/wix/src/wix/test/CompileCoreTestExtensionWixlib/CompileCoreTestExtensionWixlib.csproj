@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (c) .NET Foundation and contributors. All rights reserved. Licensed under the Microsoft Reciprocal License. See LICENSE.TXT file in the project root for full license information. -->
+
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <IncludeSomeVerInfo>true</IncludeSomeVerInfo>
+    <IsPackable>false</IsPackable>
+    <OutputType>Exe</OutputType>
+    <SignOutput>false</SignOutput>
+    <RollForward>Major</RollForward>
+
+    <WixlibPath>$(BaseOutputPath)TestData\$(Configuration)\example.wixlib</WixlibPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\WixInternal.Core.TestPackage\WixInternal.Core.TestPackage.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ExtensionSource Include="..\Example.Extension\Data\example.wxs" />
+    <ExtensionSource Include="..\Example.Extension\Data\example.en-us.wxl" />
+    <ExtensionSource Include="..\Example.Extension\Data\example.ja-jp.wxl" />
+  </ItemGroup>
+
+  <Target Name="BuildExtensionWixlibs"
+          AfterTargets="AfterBuild"
+          Inputs="@(ExtensionSource)"
+          Outputs="$(WixlibPath)"
+          Condition=" '$(NCrunch)'!='1' ">
+
+    <Exec Command="dotnet @(TargetPathWithTargetPlatformMoniker) &quot;$(IntermediateOutputPath) &quot; &quot;$(WixlibPath)&quot; &quot;@(ExtensionSource)&quot;" />
+
+    <Message Importance="high" Text="@(ExtensionSource) -&gt; $(WixlibPath)" />
+  </Target>
+</Project>

@@ -1,0 +1,13 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" >
+  <Bundle Id="WixToolsetTest.TestBundle" Name="~TagTestBundle" Version="4.3.2.1" Manufacturer="Example Corporation">
+    <BootstrapperApplication SourceFile="fakeba.dll" />
+
+    <SoftwareTag Regid="wixtoolset.org" InstallPath="[ProgramFiles6432Folder]\Test\swidtag" />
+
+    <Chain>
+      <MsiPackage SourceFile="test.msi">
+            <MsiProperty Name="TEST" Value="1" />
+      </MsiPackage>
+    </Chain>
+  </Bundle>
+</Wix>

@@ -1,0 +1,12 @@
+{
+  // Separate config for the Vite config file itself — it runs in Node, not the browser.
+  "compilerOptions": {
+    "composite":                        true,
+    "skipLibCheck":                     true,
+    "module":                           "ESNext",
+    "moduleResolution":                 "bundler",
+    "allowSyntheticDefaultImports":     true,
+    "strict":                           true
+  },
+  "include": ["vite.config.*", "playwright.config.*"]
+}

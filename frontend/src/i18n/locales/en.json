@@ -1,0 +1,77 @@
+{
+  "common": {
+    "save":     "Save",
+    "cancel":   "Cancel",
+    "delete":   "Delete",
+    "edit":     "Edit",
+    "close":    "Close",
+    "search":   "Search",
+    "refresh":  "Refresh",
+    "loading":  "Loading…",
+    "error":    "Something went wrong",
+    "retry":    "Retry",
+    "yes":      "Yes",
+    "no":       "No",
+    "all":      "All",
+    "none":     "None",
+    "unknown":  "Unknown",
+    "online":   "Online",
+    "offline":  "Offline"
+  },
+  "nav": {
+    "skip_to_content": "Skip to main content",
+    "dashboard":       "Dashboard",
+    "machines":        "Machines",
+    "live":            "Live View",
+    "apps":            "Apps",
+    "browser":         "Browser",
+    "productivity":    "Productivity",
+    "input":           "Input",
+    "files":           "Files",
+    "network":         "Network",
+    "dlp":             "DLP",
+    "alerts":          "Alerts",
+    "remote":          "Remote Access",
+    "reports":         "Reports",
+    "settings":        "Settings",
+    "users":           "Users",
+    "logout":          "Log out"
+  },
+  "auth": {
+    "sign_in":           "Sign in",
+    "username":          "Username",
+    "password":          "Password",
+    "login_failed":      "Login failed — check your credentials",
+    "session_expired":   "Your session expired. Please sign in again."
+  },
+  "dashboard": {
+    "title":             "Dashboard",
+    "online_machines":   "Online machines",
+    "unread_alerts":     "Unread alerts",
+    "top_apps":          "Top applications",
+    "top_domains":       "Top domains"
+  },
+  "machines": {
+    "title":             "Machines",
+    "search_placeholder":"Search by hostname or IP…",
+    "delete_confirm":    "Delete {{hostname}}? This removes all activity history.",
+    "deleted_toast":     "{{hostname}} deleted",
+    "activity_cleared":  "Activity cleared for {{hostname}}",
+    "no_machines":       "No machines enrolled yet."
+  },
+  "alerts": {
+    "title":             "Alerts",
+    "tab_logs":          "Logs",
+    "tab_rules":         "Rules",
+    "acknowledge_all":   "Acknowledge all",
+    "purge_acknowledged":"Purge acknowledged",
+    "no_alerts":         "No alerts to show."
+  },
+  "platform": {
+    "title":             "Platform Admin",
+    "overview":          "Platform Overview",
+    "tenants":           "Tenant Management",
+    "users":             "Platform Users",
+    "license":           "License Management"
+  }
+}

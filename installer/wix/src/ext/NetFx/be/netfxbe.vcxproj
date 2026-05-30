@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (c) .NET Foundation and contributors. All rights reserved. Licensed under the Microsoft Reciprocal License. See LICENSE.TXT file in the project root for full license information. -->
+
+<Project DefaultTargets="Build" Toolsxmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|ARM64">
+      <Configuration>Debug</Configuration>
+      <Platform>ARM64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|ARM64">
+      <Configuration>Release</Configuration>
+      <Platform>ARM64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|X64">
+      <Configuration>Debug</Configuration>
+      <Platform>X64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|X64">
+      <Configuration>Release</Configuration>
+      <Platform>X64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{B65719C0-B2CC-45F9-AF33-6F147F741ADB}</ProjectGuid>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <TargetName>netfxbe</TargetName>
+    <CharacterSet>Unicode</CharacterSet>
+    <ProjectModuleDefinitionFile>netfxbe.def</ProjectModuleDefinitionFile>
+    <Description>WiX Toolset Netfx BootstrapperExtension</Description>
+  </PropertyGroup>
+
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+
+  <PropertyGroup>
+    <ProjectAdditionalLinkLibraries>msi.lib</ProjectAdditionalLinkLibraries>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ClCompile Include="detectnetcore.cpp" />
+    <ClCompile Include="detectnetcoresdk.cpp" />
+    <ClCompile Include="detectnetcoresdkfeatureband.cpp" />
+    <ClCompile Include="netfxbe.cpp" />
+    <ClCompile Include="NetfxBootstrapperExtension.cpp" />
+    <ClCompile Include="netfxsearch.cpp" />
+    <ClCompile Include="precomp.cpp">
+      <PrecompiledHeader>Create</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="runnetcoresearch.cpp" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ClInclude Include="detectnetcore.h" />
+    <ClInclude Include="detectnetcoresdk.h" />
+    <ClInclude Include="detectnetcoresdkfeatureband.h" />
+    <ClInclude Include="NetfxBootstrapperExtension.h" />
+    <ClInclude Include="netfxsearch.h" />
+    <ClInclude Include="precomp.h" />
+    <ClInclude Include="runnetcoresearch.h" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="netfxbe.def" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WixToolset.BootstrapperExtensionApi" />
+
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+  </ItemGroup>
+
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

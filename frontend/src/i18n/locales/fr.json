@@ -1,0 +1,77 @@
+{
+  "common": {
+    "save":     "Enregistrer",
+    "cancel":   "Annuler",
+    "delete":   "Supprimer",
+    "edit":     "Modifier",
+    "close":    "Fermer",
+    "search":   "Rechercher",
+    "refresh":  "Actualiser",
+    "loading":  "Chargement…",
+    "error":    "Une erreur s'est produite",
+    "retry":    "Réessayer",
+    "yes":      "Oui",
+    "no":       "Non",
+    "all":      "Tous",
+    "none":     "Aucun",
+    "unknown":  "Inconnu",
+    "online":   "En ligne",
+    "offline":  "Hors ligne"
+  },
+  "nav": {
+    "skip_to_content": "Aller au contenu principal",
+    "dashboard":       "Tableau de bord",
+    "machines":        "Machines",
+    "live":            "Vue en direct",
+    "apps":            "Applications",
+    "browser":         "Navigateur",
+    "productivity":    "Productivité",
+    "input":           "Saisie",
+    "files":           "Fichiers",
+    "network":         "Réseau",
+    "dlp":             "DLP",
+    "alerts":          "Alertes",
+    "remote":          "Accès à distance",
+    "reports":         "Rapports",
+    "settings":        "Paramètres",
+    "users":           "Utilisateurs",
+    "logout":          "Se déconnecter"
+  },
+  "auth": {
+    "sign_in":           "Se connecter",
+    "username":          "Nom d'utilisateur",
+    "password":          "Mot de passe",
+    "login_failed":      "Échec de la connexion — vérifiez vos identifiants",
+    "session_expired":   "Votre session a expiré. Veuillez vous reconnecter."
+  },
+  "dashboard": {
+    "title":             "Tableau de bord",
+    "online_machines":   "Machines en ligne",
+    "unread_alerts":     "Alertes non lues",
+    "top_apps":          "Applications principales",
+    "top_domains":       "Domaines principaux"
+  },
+  "machines": {
+    "title":             "Machines",
+    "search_placeholder":"Rechercher par nom d'hôte ou IP…",
+    "delete_confirm":    "Supprimer {{hostname}} ? Tout l'historique sera effacé.",
+    "deleted_toast":     "{{hostname}} supprimé",
+    "activity_cleared":  "Activité effacée pour {{hostname}}",
+    "no_machines":       "Aucune machine enrôlée pour le moment."
+  },
+  "alerts": {
+    "title":             "Alertes",
+    "tab_logs":          "Journaux",
+    "tab_rules":         "Règles",
+    "acknowledge_all":   "Tout confirmer",
+    "purge_acknowledged":"Purger les confirmées",
+    "no_alerts":         "Aucune alerte à afficher."
+  },
+  "platform": {
+    "title":             "Administration de la plateforme",
+    "overview":          "Vue d'ensemble",
+    "tenants":           "Gestion des locataires",
+    "users":             "Utilisateurs de la plateforme",
+    "license":           "Gestion des licences"
+  }
+}

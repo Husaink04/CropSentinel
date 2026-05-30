@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+    <Package Id="WixToolsetTest.OverrideVirtualSymbolWithFragments" Name="Override Virtual Symbol With Fragments" Version="1.0.0.0" Manufacturer="Example Corporation">
+        <DirectoryRef Id="TestFolder" />
+
+        <PropertyRef Id="A" />
+        <PropertyRef Id="B" />
+    </Package>
+
+    <Fragment>
+        <Property Id="A" Secure="true"/>
+        <DirectoryRef Id="TestFolder" />
+    </Fragment>
+
+    <Fragment>
+        <Property Id="B" Secure="true"/>
+        <DirectoryRef Id="TestFolder" />
+    </Fragment>
+
+    <Fragment>
+        <StandardDirectory Id="ProgramFilesFolder">
+            <Directory Id="override TestFolder" Name="Override Test Folder Includes Another" />
+            <Directory Id="AlsoIncluded" Name="Also Included" />
+        </StandardDirectory>
+    </Fragment>
+
+    <Fragment>
+        <StandardDirectory Id="ProgramFilesFolder">
+            <Directory Id="virtual TestFolder" Name="Test Folder" />
+            <Directory Id="NotIncluded" Name="Not Included" />
+        </StandardDirectory>
+    </Fragment>
+</Wix>

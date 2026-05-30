@@ -1,0 +1,24 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Id="WixToolsetTest.TestPackage" Name="MsiPackage" Language="1033" Version="1.0" Manufacturer="Example Corporation" Compressed="no" InstallerVersion="200" Scope="perMachine">
+    
+
+    <MajorUpgrade DowngradeErrorMessage="!(loc.DowngradeError)" />
+
+    <Feature Id="ProductFeature" Title="!(loc.FeatureTitle)">
+        <ComponentGroupRef Id="ProductComponents.x86" />
+        <!-- <?if x64 == $(sys.BUILDARCH) ?> -->
+        <!-- <?if arm==$(sys.BUILDARCH) ?> -->
+        <?if $(sys.BUILDARCH) = "x64" ?>
+        <ComponentGroupRef Id="ProductComponents.x64" />
+        <ComponentGroupRef Id="ProductComponents.arm" />
+    </Feature>
+  </Package>
+
+  <Fragment>
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFilesFolder">
+        <Directory Id="INSTALLFOLDER" Name="MsiPackage" />
+      </Directory>
+    </Directory>
+  </Fragment>
+</Wix>

@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package
+    Name="CropSentinel Agent"
+    Language="1033"
+    Version="$(var.ProductVersion)"
+    Manufacturer="CropSentinel"
+    UpgradeCode="{D1772A7D-6C21-49E7-89F7-67ED7B197DAF}"
+    InstallerVersion="500"
+    Compressed="yes"
+    Scope="perMachine">
+
+    <MajorUpgrade
+      AllowSameVersionUpgrades="yes"
+      DowngradeErrorMessage="A newer version of CropSentinel Agent is already installed." />
+
+    <MediaTemplate EmbedCab="yes" />
+    <Property Id="ARPNOMODIFY" Value="1" />
+    <Property Id="ARPNOREPAIR" Value="1" />
+
+    <Binary Id="WrappedSetupExe" SourceFile="$(var.SetupExePath)" />
+
+    <CustomAction
+      Id="RunWrappedSetupInstall"
+      BinaryRef="WrappedSetupExe"
+      ExeCommand="--install"
+      Return="check" />
+
+    <CustomAction
+      Id="RunWrappedSetupUninstall"
+      BinaryRef="WrappedSetupExe"
+      ExeCommand="--uninstall --quiet"
+      Return="ignore" />
+
+    <InstallExecuteSequence>
+      <Custom Action="RunWrappedSetupInstall" After="InstallFiles" Condition="NOT Installed" />
+      <Custom Action="RunWrappedSetupUninstall" Before="RemoveFiles" Condition='REMOVE="ALL"' />
+    </InstallExecuteSequence>
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="CropSentinel Agent">
+        <Component Id="InstallMarkerComponent">
+          <CreateFolder />
+          <RegistryValue
+            Root="HKLM"
+            Key="Software\CropSentinel\Agent"
+            Name="InstalledVersion"
+            Type="string"
+            Value="$(var.ProductVersion)"
+            KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <Feature Id="MainFeature" Title="CropSentinel Agent" Level="1">
+      <ComponentRef Id="InstallMarkerComponent" />
+    </Feature>
+  </Package>
+</Wix>

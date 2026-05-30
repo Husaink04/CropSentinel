@@ -1,0 +1,37 @@
+﻿<!-- Copyright (c) .NET Foundation and contributors. All rights reserved. Licensed under the Microsoft Reciprocal License. See LICENSE.TXT file in the project root for full license information. -->
+
+
+<WixLocalization Culture="de-de" xmlns="http://wixtoolset.org/schemas/v4/wxl">
+    <String Id="msierrUSRFailedUserCreate" Overridable="yes" Value="Konnte den Benutzer nicht anlegen. ([2]   [3]   [4]   [5])" />
+    <String Id="msierrUSRFailedUserCreatePswd" Overridable="yes" Value="Konnte den Benutzer auf Grund eines falschen Passwortes nicht anlegen. ([2]   [3]   [4]   [5])" />
+    <String Id="msierrUSRFailedUserGroupAdd" Overridable="yes" Value="Konnte Benutzer nicht zur Gruppe hinzufügen. ([2]   [3]   [4]   [5])" />
+    <String Id="msierrUSRFailedGrantLogonAsService" Overridable="yes" Value="Konnte den Benutzer nicht gewähren 'Anmelden als ein Service' Rechte. ([2]   [3]   [4]   [5])" />
+    <String Id="msierrUSRFailedUserCreateExists" Overridable="yes" Value="Konnte den Benutzer nicht anlegen, da er bereits existierte. ([2]   [3]   [4]   [5])" />
+
+    <String Id="msierrGRPFailedGroupCreate" Overridable="yes" Value="Könnte die Gruppe nicht anlegen. ([2]   [3]   [4]   [5])" />
+    <String Id="msierrGRPFailedGroupGroupAdd" Overridable="yes" Value="Könnte die Gruppe nicht zur Gruppe hinzufügen. ([2]   [3]   [4]   [5])" />
+    <String Id="msierrGRPFailedGroupCreateExists" Overridable="yes" Value="Könnte die Gruppe nicht anlegen, da er bereits existierte. ([2]   [3]   [4]   [5])" />
+
+    <String Id="msierrSMBFailedCreate" Overridable="yes" Value="Konnte Netzwerkfreigabe nicht anlegen. ([2]   [3]   [4]   [5])" />
+    <String Id="msierrSMBFailedDrop" Overridable="yes" Value="Konnte Netzwerkfreigabe nicht entfernen. ([2]   [3]   [4]   [5])" />
+
+    <String Id="msierrPERFMONFailedRegisterDLL" Overridable="yes" Value="Konnte die DLL nicht für PerfMon registrieren. ([2]   [3]   [4]   [5])" />
+    <String Id="msierrPERFMONFailedUnregisterDLL" Overridable="yes" Value="Konnte die DLL nicht für PerfMon deregistrieren. ([2]   [3]   [4]   [5])" />
+
+    <String Id="msierrInstallPerfCounterData" Overridable="yes" Value="Konnte die Daten der Leistungsüberwachung (performance counters) nicht installieren. ([2]   [3]   [4]   [5])" />
+    <String Id="msierrUninstallPerfCounterData" Overridable="yes" Value="Konnte die Daten der Leistungsüberwachung (performance counters) nicht deinstallieren. ([2]   [3]   [4]   [5])" />
+
+    <String Id="msierrSecureObjectsFailedCreateSD" Overridable="yes" Value="Konnte keinen Security Descriptor für [3]\[4] erstellen, System Fehler: [2]" />
+    <String Id="msierrSecureObjectsFailedSet" Overridable="yes" Value="Konnte keinen Security Descriptor für das Objekt [3] erstellen, System Fehler: [2]" />
+    <String Id="msierrSecureObjectsUnknownType" Overridable="yes" Value="Unbekannter Objekt Typ [3], System Fehler: [2]" />
+
+    <String Id="msierrXmlFileFailedRead" Overridable="yes" Value="Beim Lesen der XML Dateien trat ein Fehler auf." />
+    <String Id="msierrXmlFileFailedOpen" Overridable="yes" Value="Konnte XML Datei [3] nicht öffnen, System Fehler: [2]" />
+    <String Id="msierrXmlFileFailedSelect" Overridable="yes" Value="Konnte Knoten [3] in der XML Datei [4] nicht finden, System Fehler: [2]" />
+    <String Id="msierrXmlFileFailedSave" Overridable="yes" Value="Beim Speichern der Änderungen an der XML Datei [3] trat ein Fehler auf, System Fehler: [2]" />
+
+    <String Id="msierrXmlConfigFailedRead" Overridable="yes" Value="Bei der Konfiguration der XML Dateien  trat ein Fehler auf." />
+    <String Id="msierrXmlConfigFailedOpen" Overridable="yes" Value="Konnte XML Datei [3] nicht öffnen, System Fehler: [2]" />
+    <String Id="msierrXmlConfigFailedSelect" Overridable="yes" Value="Konnte Knoten [3] in der XML Datei [4] nicht finden, System Fehler: [2]" />
+    <String Id="msierrXmlConfigFailedSave" Overridable="yes" Value="Beim Speichern der Änderungen an der XML Datei [3] trat ein Fehler auf, System Fehler: [2]" />
+</WixLocalization>

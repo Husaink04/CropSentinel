@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (c) .NET Foundation and contributors. All rights reserved. Licensed under the Microsoft Reciprocal License. See LICENSE.TXT file in the project root for full license information. -->
+
+<Project>
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <EnableSourceLink Condition=" '$(NCrunch)' == '1' ">false</EnableSourceLink>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <NoWarn>$(NoWarn);MSB3026</NoWarn>
+
+    <ProjectName Condition=" '$(ProjectName)' == '' ">$(MSBuildProjectName)</ProjectName>
+    <RootFolder>$([System.IO.Path]::GetFullPath($(MSBuildThisFileDirectory)..\))</RootFolder>
+    <RootBuildFolder>$([System.IO.Path]::GetFullPath($(MSBuildThisFileDirectory)..\build\))</RootBuildFolder>
+    <RootPackagesFolder>$([System.IO.Path]::GetFullPath($(MSBuildThisFileDirectory)..\packages\))</RootPackagesFolder>
+    <LogsFolder>$(RootBuildFolder)logs\</LogsFolder>
+    <TestResultsFolder>$(LogsFolder)TestResults\</TestResultsFolder>
+    <PdbsFolder>$(LogsFolder)pdbs\$(Configuration)\</PdbsFolder>
+    <ArtifactsFolder>$(RootBuildFolder)artifacts\</ArtifactsFolder>
+    <ToolsFolder>$(RootBuildFolder).tools</ToolsFolder>
+    <PackageOutputPath>$(ArtifactsFolder)</PackageOutputPath>
+    <BaseOutputPath>$(RootBuildFolder)$(SegmentName)\</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(BaseOutputPath)obj\$(ProjectName)\</BaseIntermediateOutputPath>
+    <OutputPath>$(BaseOutputPath)$(Configuration)\</OutputPath>
+
+    <!-- This is C++-specific but used from managed projects to pick up native build artifacts. -->
+    <WixNativeSdkLibraryToolset>v143</WixNativeSdkLibraryToolset>
+    <PlatformToolset Condition=" '$(ConfigurationType)' == 'StaticLibrary' ">$(WixNativeSdkLibraryToolset)</PlatformToolset>
+    <PlatformToolset Condition=" '$(PlatformToolset)' == '' ">v143</PlatformToolset>
+
+    <NuGetAudit>true</NuGetAudit>
+    <NuGetAuditMode>all</NuGetAuditMode>
+    <NuGetAuditLevel>low</NuGetAuditLevel>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <Authors Condition=" '$(WixOfficialBuild)'!='true' ">WiX Dev Build</Authors>
+    <Authors Condition=" '$(WixOfficialBuild)'=='true' ">WiX Toolset Team</Authors>
+    <Company Condition=" '$(WixOfficialBuild)'!='true' ">WiX Dev Build</Company>
+    <Company Condition=" '$(WixOfficialBuild)'=='true' ">WiX Toolset</Company>
+    <Copyright>Copyright (c) .NET Foundation and contributors. All rights reserved.</Copyright>
+
+    <PackageEulaSource>$(RootFolder)OSMFEULA.txt</PackageEulaSource>
+    <PackageLicenseFile>OSMFEULA.txt</PackageLicenseFile>
+    <PackageLicenseAcceptanceTargets>$(MSBuildThisFileDirectory)internal\targets\CheckLicenseAcceptance.targets</PackageLicenseAcceptanceTargets>
+    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
+
+    <Product Condition=" '$(WixOfficialBuild)'!='true' ">WiX Dev Build</Product>
+    <Product Condition=" '$(WixOfficialBuild)'=='true' ">WiX Toolset</Product>
+    <ProjectUrl>https://wixtoolset.org/</ProjectUrl>
+    <PackageIcon>icon.png</PackageIcon>
+    <PackageIconSource Condition=" '$(WixOfficialBuild)'!='true' ">$(MSBuildThisFileDirectory)internal\images\icon.png</PackageIconSource>
+    <PackageIconSource Condition=" '$(WixOfficialBuild)'=='true' ">$(MSBuildThisFileDirectory)internal\images\official\icon.png</PackageIconSource>
+    <PackageTags>WiX MSI install setup</PackageTags>
+  </PropertyGroup>
+
+  <Import Project="Directory$(MSBuildProjectExtension).props" Condition=" Exists('Directory$(MSBuildProjectExtension).props') " />
+</Project>

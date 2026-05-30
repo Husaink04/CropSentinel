@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (c) .NET Foundation and contributors. All rights reserved. Licensed under the Microsoft Reciprocal License. See LICENSE.TXT file in the project root for full license information. -->
+
+<Project Sdk="Microsoft.Build.NoTargets">
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+  </PropertyGroup>
+
+  <Target Name="ZipPdbs" BeforeTargets="AfterBuild" Condition=" '$(Configuration)' == 'Release' ">
+    <ZipDirectory
+        SourceDirectory="$(PdbsFolder)"
+        DestinationFile="$(ArtifactsFolder)\wix-pdbs.$(Version).zip"
+        Overwrite="true" />
+  </Target>
+</Project>

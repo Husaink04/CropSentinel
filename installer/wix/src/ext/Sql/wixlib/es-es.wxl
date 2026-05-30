@@ -1,0 +1,17 @@
+﻿<!-- Copyright (c) .NET Foundation and contributors. All rights reserved. Licensed under the Microsoft Reciprocal License. See LICENSE.TXT file in the project root for full license information. -->
+
+
+<WixLocalization Culture="es-es" xmlns="http://wixtoolset.org/schemas/v4/wxl">
+  <String Id="msierrSQLFailedCreateDatabase" Overridable="yes" Value="Error [2]: falla al crear la base de datos SQL: [3], detalle del error: [4]." />
+  <String Id="msierrSQLFailedDropDatabase" Overridable="yes" Value="Error [2]: falla al poner la base de datos SQL: [3], detalle del error: [4]." />
+  <String Id="msierrSQLFailedConnectDatabase" Overridable="yes" Value="Falla al conectarse con la base de datos SQL.  ([2]   [3]   [4]   [5])" />
+  <String Id="msierrSQLFailedExecString" Overridable="yes" Value="Error [2]: falla al ejecutar la cadena SQL, detalle del error: [3], Clave SQL: [4] Cadena SQL: [5]" />
+  <String Id="msierrSQLDatabaseAlreadyExists" Overridable="yes" Value="La base de datos [3] ya existe. ¿Desea continuar?" />
+
+  <String Id="ConfigureSql" Overridable="yes" Value="Configurando SQL Server" />
+  <String Id="CreateDatabase" Overridable="yes" Value="Creando Bases de Datos" />
+  <String Id="DropDatabase" Overridable="yes" Value="Colocando Bases de Datos" />
+  <String Id="ExecuteSqlStrings" Overridable="yes" Value="Ejecutando cadenas SQL" />
+  <String Id="RollbackExecuteSqlStrings" Overridable="yes" Value="Revirtiendo cadenas SQL" />
+</WixLocalization>
+

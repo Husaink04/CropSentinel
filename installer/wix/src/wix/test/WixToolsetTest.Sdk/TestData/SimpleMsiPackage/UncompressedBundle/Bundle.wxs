@@ -1,0 +1,9 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+    <Bundle Id="WixToolsetTest.TestBundle" Name="UncompressedBundle" Version="1.0.0.0" Manufacturer="Example Corporation" Compressed="no">
+        <BootstrapperApplication SourceFile="test.txt" />
+
+        <Chain>
+            <ExePackage Permanent="yes" DetectCondition="none" SourceFile="test.txt" />
+        </Chain>
+    </Bundle>
+</Wix>

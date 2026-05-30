@@ -1,0 +1,413 @@
+services:
+  gateway:
+    image: nginx:1.27-alpine
+    ports:
+      - "80:80" 
+      - "443:443" 
+      
+    volumes:
+      - ./gateway/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend
+      - backend
+      - agent-control
+      - monitoring
+      - realtime
+    restart: unless-stopped
+
+# ... (Keep all your remaining database, messaging, and worker configurations exactly the same!)
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: croppro
+    volumes:
+      - croppro_pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d croppro"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v24.1.10
+    command:
+      - redpanda
+      - start
+      - --overprovisioned
+      - --smp
+      - "1"
+      - --memory
+      - 512M
+      - --reserve-memory
+      - 0M
+      - --check=false
+      - --node-id
+      - "0"
+      - --kafka-addr
+      - PLAINTEXT://0.0.0.0:9092
+      - --advertise-kafka-addr
+      - PLAINTEXT://redpanda:9092
+    ports:
+      - "9092:9092"
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:RELEASE.2025-02-07T23-21-09Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${OBJECT_STORAGE_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${OBJECT_STORAGE_SECRET_KEY:-minioadmin}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - cropsentinel_minio:/data
+    restart: unless-stopped
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8
+    ports:
+      - "8123:8123"
+      - "9009:9000"
+    volumes:
+      - cropsentinel_clickhouse:/var/lib/clickhouse
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./ops/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+    volumes:
+      - ./ops/grafana/provisioning:/etc/grafana/provisioning:ro
+      - cropsentinel_grafana:/var/lib/grafana
+    depends_on:
+      - prometheus
+      - loki
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:3.1.1
+    command:
+      - -config.file=/etc/loki/config.yml
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./ops/loki/config.yml:/etc/loki/config.yml:ro
+      - cropsentinel_loki:/loki
+    restart: unless-stopped
+
+  promtail:
+    image: grafana/promtail:3.1.1
+    command:
+      - -config.file=/etc/promtail/config.yml
+    volumes:
+      - ./ops/promtail/config.yml:/etc/promtail/config.yml:ro
+      - ./backend/storage/logs:/var/log/cropsentinel
+    depends_on:
+      - loki
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - croppro_reports:/app/reports
+      - ./license.key:/app/license.key:ro
+      - ./backend/dist/installers:/app/dist/installers
+      - ./backend/storage:/app/storage
+      - ./backend/storage/logs:/app/logs
+    environment:
+      SECRET_KEY: ${SECRET_KEY}
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/croppro
+      DEFAULT_ADMIN_USERNAME: ${DEFAULT_ADMIN_USERNAME}
+      DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD}
+      DEFAULT_AGENT_STOP_PASSWORD: ${DEFAULT_AGENT_STOP_PASSWORD}
+      AGENT_API_KEY: ${AGENT_API_KEY:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      CROPPRO_LICENSE_PATH: /app/license.key
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      EVENT_BUS_BACKEND: ${EVENT_BUS_BACKEND:-noop}
+      EVENT_BUS_CONSUME_EXTERNAL: ${EVENT_BUS_CONSUME_EXTERNAL:-0}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-redpanda:9092}
+      OBJECT_STORAGE_BACKEND: ${OBJECT_STORAGE_BACKEND:-filesystem}
+      OBJECT_STORAGE_ENDPOINT: ${OBJECT_STORAGE_ENDPOINT:-http://minio:9000}
+      OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET:-cropsentinel-evidence}
+      OBJECT_STORAGE_ACCESS_KEY: ${OBJECT_STORAGE_ACCESS_KEY:-minioadmin}
+      OBJECT_STORAGE_SECRET_KEY: ${OBJECT_STORAGE_SECRET_KEY:-minioadmin}
+      CLICKHOUSE_URL: ${CLICKHOUSE_URL:-http://clickhouse:8123}
+      ANALYTICS_BACKEND: ${ANALYTICS_BACKEND:-clickhouse}
+      CLICKHOUSE_ANALYTICS_READS: ${CLICKHOUSE_ANALYTICS_READS:-0}
+      CLICKHOUSE_ANALYTICS_FLUSH_BATCH: ${CLICKHOUSE_ANALYTICS_FLUSH_BATCH:-250}
+      CLICKHOUSE_ANALYTICS_FLUSH_INTERVAL_SECONDS: ${CLICKHOUSE_ANALYTICS_FLUSH_INTERVAL_SECONDS:-2.0}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-}
+      PROMETHEUS_METRICS_TOKEN: ${PROMETHEUS_METRICS_TOKEN:-metrics-dev-token}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      LOG_FILE_PATH: ${LOG_FILE_PATH:-/app/logs/backend.log}
+      BACKUP_STATUS_FILE: ${BACKUP_STATUS_FILE:-/app/storage/ops/backup-status.json}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+      BACKUP_POSTGRES_ENABLED: ${BACKUP_POSTGRES_ENABLED:-1}
+      BACKUP_REDIS_ENABLED: ${BACKUP_REDIS_ENABLED:-1}
+      BACKUP_OBJECT_STORAGE_ENABLED: ${BACKUP_OBJECT_STORAGE_ENABLED:-1}
+      BACKUP_CLICKHOUSE_ENABLED: ${BACKUP_CLICKHOUSE_ENABLED:-1}
+      CROPSENTINEL_WINDOWS_AGENT_URL: ${CROPSENTINEL_WINDOWS_AGENT_URL:-}
+      CROPSENTINEL_LINUX_AGENT_URL: ${CROPSENTINEL_LINUX_AGENT_URL:-}
+      DR_TARGET_RTO_MINUTES: ${DR_TARGET_RTO_MINUTES:-30}
+      DR_TARGET_RPO_MINUTES: ${DR_TARGET_RPO_MINUTES:-5}
+      DR_CROSS_REGION_ENABLED: ${DR_CROSS_REGION_ENABLED:-0}
+      APP_SERVICE_ROLE: backend
+      BACKEND_WORKERS: ${BACKEND_WORKERS:-3}
+      DB_POOL_MIN: ${DB_POOL_MIN:-2}
+      DB_POOL_MAX: ${DB_POOL_MAX:-20}
+      DEFAULT_TRACK_SCREENSHOTS: ${DEFAULT_TRACK_SCREENSHOTS:-0}
+      DEFAULT_SCREENSHOT_INTERVAL: ${DEFAULT_SCREENSHOT_INTERVAL:-180}
+      DEFAULT_ACTIVITY_SYNC_INTERVAL: ${DEFAULT_ACTIVITY_SYNC_INTERVAL:-30}
+      DEFAULT_BASELINE_INVENTORY_ENABLED: ${DEFAULT_BASELINE_INVENTORY_ENABLED:-0}
+      DEFAULT_BASELINE_INVENTORY_WORKER_COUNT: ${DEFAULT_BASELINE_INVENTORY_WORKER_COUNT:-1}
+      DEFAULT_BASELINE_INVENTORY_IO_THROTTLE_SECONDS: ${DEFAULT_BASELINE_INVENTORY_IO_THROTTLE_SECONDS:-0.05}
+      DEFAULT_BASELINE_INVENTORY_UPLOAD_INTERVAL_SECONDS: ${DEFAULT_BASELINE_INVENTORY_UPLOAD_INTERVAL_SECONDS:-60}
+      DEFAULT_BASELINE_INVENTORY_UPLOAD_BATCH_SIZE: ${DEFAULT_BASELINE_INVENTORY_UPLOAD_BATCH_SIZE:-100}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      redpanda:
+        condition: service_started
+      minio:
+        condition: service_started
+      clickhouse:
+        condition: service_started
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  agent-control:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["sh", "-c", "uvicorn agent_control_main:app --host ${BACKEND_HOST:-0.0.0.0} --port ${BACKEND_PORT:-8000} --workers ${AGENT_CONTROL_WORKERS:-2}"]
+    volumes:
+      - croppro_reports:/app/reports
+      - ./license.key:/app/license.key:ro
+      - ./backend/storage:/app/storage
+      - ./backend/storage/logs:/app/logs
+    environment:
+      SECRET_KEY: ${SECRET_KEY}
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/croppro
+      DEFAULT_ADMIN_USERNAME: ${DEFAULT_ADMIN_USERNAME}
+      DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD}
+      DEFAULT_AGENT_STOP_PASSWORD: ${DEFAULT_AGENT_STOP_PASSWORD}
+      AGENT_API_KEY: ${AGENT_API_KEY:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      CROPPRO_LICENSE_PATH: /app/license.key
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      EVENT_BUS_BACKEND: ${EVENT_BUS_BACKEND:-noop}
+      EVENT_BUS_CONSUME_EXTERNAL: ${EVENT_BUS_CONSUME_EXTERNAL:-1}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-redpanda:9092}
+      OBJECT_STORAGE_BACKEND: ${OBJECT_STORAGE_BACKEND:-filesystem}
+      OBJECT_STORAGE_ENDPOINT: ${OBJECT_STORAGE_ENDPOINT:-http://minio:9000}
+      OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET:-cropsentinel-evidence}
+      OBJECT_STORAGE_ACCESS_KEY: ${OBJECT_STORAGE_ACCESS_KEY:-minioadmin}
+      OBJECT_STORAGE_SECRET_KEY: ${OBJECT_STORAGE_SECRET_KEY:-minioadmin}
+      CLICKHOUSE_URL: ${CLICKHOUSE_URL:-http://clickhouse:8123}
+      ANALYTICS_BACKEND: ${ANALYTICS_BACKEND:-clickhouse}
+      CLICKHOUSE_ANALYTICS_READS: ${CLICKHOUSE_ANALYTICS_READS:-0}
+      CLICKHOUSE_ANALYTICS_FLUSH_BATCH: ${CLICKHOUSE_ANALYTICS_FLUSH_BATCH:-250}
+      CLICKHOUSE_ANALYTICS_FLUSH_INTERVAL_SECONDS: ${CLICKHOUSE_ANALYTICS_FLUSH_INTERVAL_SECONDS:-2.0}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-}
+      PROMETHEUS_METRICS_TOKEN: ${PROMETHEUS_METRICS_TOKEN:-metrics-dev-token}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      LOG_FILE_PATH: ${LOG_FILE_PATH:-/app/logs/agent-control.log}
+      BACKUP_STATUS_FILE: ${BACKUP_STATUS_FILE:-/app/storage/ops/backup-status.json}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+      BACKUP_POSTGRES_ENABLED: ${BACKUP_POSTGRES_ENABLED:-1}
+      BACKUP_REDIS_ENABLED: ${BACKUP_REDIS_ENABLED:-1}
+      BACKUP_OBJECT_STORAGE_ENABLED: ${BACKUP_OBJECT_STORAGE_ENABLED:-1}
+      BACKUP_CLICKHOUSE_ENABLED: ${BACKUP_CLICKHOUSE_ENABLED:-1}
+      DR_TARGET_RTO_MINUTES: ${DR_TARGET_RTO_MINUTES:-30}
+      DR_TARGET_RPO_MINUTES: ${DR_TARGET_RPO_MINUTES:-5}
+      DR_CROSS_REGION_ENABLED: ${DR_CROSS_REGION_ENABLED:-0}
+      APP_SERVICE_ROLE: agent-control
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      redpanda:
+        condition: service_started
+    restart: unless-stopped
+
+  monitoring:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["sh", "-c", "uvicorn monitoring_main:app --host ${BACKEND_HOST:-0.0.0.0} --port ${BACKEND_PORT:-8000} --workers ${MONITORING_WORKERS:-2}"]
+    volumes:
+      - croppro_reports:/app/reports
+      - ./license.key:/app/license.key:ro
+      - ./backend/storage:/app/storage
+      - ./backend/storage/logs:/app/logs
+    environment:
+      SECRET_KEY: ${SECRET_KEY}
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/croppro
+      DEFAULT_ADMIN_USERNAME: ${DEFAULT_ADMIN_USERNAME}
+      DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD}
+      DEFAULT_AGENT_STOP_PASSWORD: ${DEFAULT_AGENT_STOP_PASSWORD}
+      AGENT_API_KEY: ${AGENT_API_KEY:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      CROPPRO_LICENSE_PATH: /app/license.key
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      EVENT_BUS_BACKEND: ${EVENT_BUS_BACKEND:-noop}
+      EVENT_BUS_CONSUME_EXTERNAL: ${EVENT_BUS_CONSUME_EXTERNAL:-1}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-redpanda:9092}
+      OBJECT_STORAGE_BACKEND: ${OBJECT_STORAGE_BACKEND:-filesystem}
+      OBJECT_STORAGE_ENDPOINT: ${OBJECT_STORAGE_ENDPOINT:-http://minio:9000}
+      OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET:-cropsentinel-evidence}
+      OBJECT_STORAGE_ACCESS_KEY: ${OBJECT_STORAGE_ACCESS_KEY:-minioadmin}
+      OBJECT_STORAGE_SECRET_KEY: ${OBJECT_STORAGE_SECRET_KEY:-minioadmin}
+      CLICKHOUSE_URL: ${CLICKHOUSE_URL:-http://clickhouse:8123}
+      ANALYTICS_BACKEND: ${ANALYTICS_BACKEND:-clickhouse}
+      CLICKHOUSE_ANALYTICS_READS: ${CLICKHOUSE_ANALYTICS_READS:-0}
+      CLICKHOUSE_ANALYTICS_FLUSH_BATCH: ${CLICKHOUSE_ANALYTICS_FLUSH_BATCH:-250}
+      CLICKHOUSE_ANALYTICS_FLUSH_INTERVAL_SECONDS: ${CLICKHOUSE_ANALYTICS_FLUSH_INTERVAL_SECONDS:-2.0}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-}
+      PROMETHEUS_METRICS_TOKEN: ${PROMETHEUS_METRICS_TOKEN:-metrics-dev-token}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      LOG_FILE_PATH: ${LOG_FILE_PATH:-/app/logs/monitoring.log}
+      BACKUP_STATUS_FILE: ${BACKUP_STATUS_FILE:-/app/storage/ops/backup-status.json}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+      BACKUP_POSTGRES_ENABLED: ${BACKUP_POSTGRES_ENABLED:-1}
+      BACKUP_REDIS_ENABLED: ${BACKUP_REDIS_ENABLED:-1}
+      BACKUP_OBJECT_STORAGE_ENABLED: ${BACKUP_OBJECT_STORAGE_ENABLED:-1}
+      BACKUP_CLICKHOUSE_ENABLED: ${BACKUP_CLICKHOUSE_ENABLED:-1}
+      DR_TARGET_RTO_MINUTES: ${DR_TARGET_RTO_MINUTES:-30}
+      DR_TARGET_RPO_MINUTES: ${DR_TARGET_RPO_MINUTES:-5}
+      DR_CROSS_REGION_ENABLED: ${DR_CROSS_REGION_ENABLED:-0}
+      APP_SERVICE_ROLE: monitoring
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      redpanda:
+        condition: service_started
+      minio:
+        condition: service_started
+      clickhouse:
+        condition: service_started
+    restart: unless-stopped
+
+  realtime:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["sh", "-c", "uvicorn realtime_main:app --host ${BACKEND_HOST:-0.0.0.0} --port ${BACKEND_PORT:-8000} --workers ${REALTIME_WORKERS:-1}"]
+    volumes:
+      - croppro_reports:/app/reports
+      - ./license.key:/app/license.key:ro
+      - ./backend/storage:/app/storage
+      - ./backend/storage/logs:/app/logs
+    environment:
+      SECRET_KEY: ${SECRET_KEY}
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/croppro
+      DEFAULT_ADMIN_USERNAME: ${DEFAULT_ADMIN_USERNAME}
+      DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD}
+      DEFAULT_AGENT_STOP_PASSWORD: ${DEFAULT_AGENT_STOP_PASSWORD}
+      AGENT_API_KEY: ${AGENT_API_KEY:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      CROPPRO_LICENSE_PATH: /app/license.key
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      EVENT_BUS_BACKEND: ${EVENT_BUS_BACKEND:-noop}
+      EVENT_BUS_CONSUME_EXTERNAL: ${EVENT_BUS_CONSUME_EXTERNAL:-1}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-redpanda:9092}
+      OBJECT_STORAGE_BACKEND: ${OBJECT_STORAGE_BACKEND:-filesystem}
+      OBJECT_STORAGE_ENDPOINT: ${OBJECT_STORAGE_ENDPOINT:-http://minio:9000}
+      OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET:-cropsentinel-evidence}
+      OBJECT_STORAGE_ACCESS_KEY: ${OBJECT_STORAGE_ACCESS_KEY:-minioadmin}
+      OBJECT_STORAGE_SECRET_KEY: ${OBJECT_STORAGE_SECRET_KEY:-minioadmin}
+      CLICKHOUSE_URL: ${CLICKHOUSE_URL:-http://clickhouse:8123}
+      ANALYTICS_BACKEND: ${ANALYTICS_BACKEND:-clickhouse}
+      CLICKHOUSE_ANALYTICS_READS: ${CLICKHOUSE_ANALYTICS_READS:-0}
+      CLICKHOUSE_ANALYTICS_FLUSH_BATCH: ${CLICKHOUSE_ANALYTICS_FLUSH_BATCH:-250}
+      CLICKHOUSE_ANALYTICS_FLUSH_INTERVAL_SECONDS: ${CLICKHOUSE_ANALYTICS_FLUSH_INTERVAL_SECONDS:-2.0}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-}
+      PROMETHEUS_METRICS_TOKEN: ${PROMETHEUS_METRICS_TOKEN:-metrics-dev-token}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      LOG_FILE_PATH: ${LOG_FILE_PATH:-/app/logs/realtime.log}
+      BACKUP_STATUS_FILE: ${BACKUP_STATUS_FILE:-/app/storage/ops/backup-status.json}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+      BACKUP_POSTGRES_ENABLED: ${BACKUP_POSTGRES_ENABLED:-1}
+      BACKUP_REDIS_ENABLED: ${BACKUP_REDIS_ENABLED:-1}
+      BACKUP_OBJECT_STORAGE_ENABLED: ${BACKUP_OBJECT_STORAGE_ENABLED:-1}
+      BACKUP_CLICKHOUSE_ENABLED: ${BACKUP_CLICKHOUSE_ENABLED:-1}
+      DR_TARGET_RTO_MINUTES: ${DR_TARGET_RTO_MINUTES:-30}
+      DR_TARGET_RPO_MINUTES: ${DR_TARGET_RPO_MINUTES:-5}
+      DR_CROSS_REGION_ENABLED: ${DR_CROSS_REGION_ENABLED:-0}
+      APP_SERVICE_ROLE: realtime
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      redpanda:
+        condition: service_started
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  croppro_pgdata:
+  croppro_reports:
+  cropsentinel_minio:
+  cropsentinel_clickhouse:
+  cropsentinel_grafana:
+  cropsentinel_loki:

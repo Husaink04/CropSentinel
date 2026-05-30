@@ -1,0 +1,30 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="~Patch Template Package" Version="$(V)" Manufacturer="Example Corporation" Language="1033" UpgradeCode="AAAAAAAA-BBBB-CCCC-DDDD-1234567890AB"
+           Compressed="yes" Scope="perMachine" ProductCode="11111111-2222-3333-4444-555555555555">
+
+    <MajorUpgrade DowngradeErrorMessage="Newer version already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Feature Id="Main">
+      <ComponentGroupRef Id="Components" />
+    </Feature>
+  </Package>
+
+  <Fragment>
+    <ComponentGroup Id="Components" Directory="INSTALLFOLDER">
+      <Component Id="CA">
+        <File Id="a.txt" Name="a.txt" Source="A.txt" />
+      </Component>
+
+      <Component Id="CReg">
+        <RegistryValue Root="HKLM" Key="SOFTWARE\!(bind.property.ProductName)\Patch" Name="Version" Value="$(V)" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+
+  <Fragment>
+    <StandardDirectory Id="ProgramFilesFolder">
+      <Directory Id="INSTALLFOLDER" Name="~Test App" />
+    </StandardDirectory>
+  </Fragment>
+</Wix>

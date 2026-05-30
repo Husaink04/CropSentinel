@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (c) .NET Foundation and contributors. All rights reserved. Licensed under the Microsoft Reciprocal License. See LICENSE.TXT file in the project root for full license information. -->
+
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <PlatformTarget>x64</PlatformTarget>
+    <IsWixTestProject>true</IsWixTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="runtests.cmd" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\WixTestTools\WixTestTools.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Owin" />
+    <PackageReference Include="WixInternal.TestSupport" />
+    <PackageReference Include="WixToolset.Data" />
+    <PackageReference Include="WixToolset.BootstrapperApplicationApi" />
+  </ItemGroup>
+</Project>
