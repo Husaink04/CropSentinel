@@ -226,11 +226,11 @@ async def get_latest_screenshot(machine_id: str, user=Depends(require_permission
 async def generate_pdf_report(
     request: Request,
     machine_id: str,
+    user=Depends(require_permission("reports.generate")),
     _f=Depends(require_feature("reports")),
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     async_mode: bool = Query(False, alias="async"),
-    user=Depends(require_permission("reports.generate")),
 ):
     _check_machine_access(user, machine_id)
     machine = db.get_machine(machine_id)
@@ -286,8 +286,8 @@ async def generate_pdf_report(
 @router.get("/api/reports/jobs/{job_id}")
 async def get_report_job(
     job_id: str,
-    _f=Depends(require_feature("reports")),
     user=Depends(require_permission("reports.generate")),
+    _f=Depends(require_feature("reports")),
 ):
     job = db.get_report_job(job_id)
     if not job:
@@ -299,8 +299,8 @@ async def get_report_job(
 @router.get("/api/reports/jobs/{job_id}/download")
 async def download_report_job(
     job_id: str,
-    _f=Depends(require_feature("reports")),
     user=Depends(require_permission("reports.generate")),
+    _f=Depends(require_feature("reports")),
 ):
     job = db.get_report_job(job_id)
     if not job:

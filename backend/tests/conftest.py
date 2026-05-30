@@ -5,7 +5,7 @@ Design notes
 * The backend speaks Postgres (psycopg2 + a module-level pool), so tests cannot
   run against an in-memory SQLite. Instead we point at a dedicated *test*
   Postgres database via the ``CROPPRO_TEST_DATABASE_URL`` env var. If that var
-  is not set, integration tests are skipped with a clear message — unit-only
+  is not set, integration tests are skipped with a clear message - unit-only
   tests (e.g. ``test_passwords.py``) still run.
 
 * Schema is initialised once per session. Between tests we TRUNCATE every
@@ -13,39 +13,72 @@ Design notes
   the cost of DROP/CREATE.
 
 * The FastAPI app is exercised via ``httpx.AsyncClient`` bound to an ASGI
-  transport — no sockets, no event-loop juggling, fast.
+  transport - no sockets, no event-loop juggling, fast.
 
 Fixture index
 -------------
-``test_db``      – session fixture; guarantees schema + truncates between tests
-``api``          – async HTTP client bound to the FastAPI app
-``make_tenant``  – factory: create tenant, returns row dict
-``make_user``    – factory: create user under a tenant, returns row dict
-``auth_headers`` – factory: login as a given user, returns Bearer headers
-``default_tenant`` – the tenant auto-seeded with id=1
+``test_db``      - session fixture; guarantees schema + truncates between tests
+``api``          - async HTTP client bound to the FastAPI app
+``make_tenant``  - factory: create tenant, returns row dict
+``make_user``    - factory: create user under a tenant, returns row dict
+``auth_headers`` - factory: login as a given user, returns Bearer headers
+``default_tenant`` - the tenant auto-seeded with id=1
 """
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import os
 import shutil
-import asyncio
 import uuid
+import zlib
 from pathlib import Path
 from typing import Callable, Optional
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import pytest
+import psycopg2
 
 
 # ---------------------------------------------------------------------------
-# Test database bootstrap — must happen BEFORE importing app modules.
+# Test database bootstrap - must happen BEFORE importing app modules.
 # ---------------------------------------------------------------------------
 _TEST_DB_URL = os.environ.get("CROPPRO_TEST_DATABASE_URL", "").strip()
+_TEST_DB_SCHEMA = ""
+
+
+def _with_search_path(database_url: str, schema_name: str) -> str:
+    split = urlsplit(database_url)
+    query = dict(parse_qsl(split.query, keep_blank_values=True))
+    options = query.get("options", "").strip()
+    search_path_opt = f"-csearch_path={schema_name}"
+    query["options"] = f"{options} {search_path_opt}".strip() if options else search_path_opt
+    return urlunsplit((split.scheme, split.netloc, split.path, urlencode(query), split.fragment))
+
+
+def _resolve_test_schema_name() -> str:
+    worker = os.environ.get("PYTEST_XDIST_WORKER", "").strip().lower()
+    if worker:
+        return f"test_{worker}"
+    return "test_main"
+
+
+def _ensure_test_schema_exists(database_url: str, schema_name: str) -> None:
+    conn = psycopg2.connect(database_url)
+    conn.autocommit = True
+    try:
+        with conn.cursor() as cur:
+            cur.execute(f'CREATE SCHEMA IF NOT EXISTS "{schema_name}"')
+    finally:
+        conn.close()
 
 if _TEST_DB_URL:
+    _TEST_DB_SCHEMA = _resolve_test_schema_name()
+    _ensure_test_schema_exists(_TEST_DB_URL, _TEST_DB_SCHEMA)
     # The app reads DATABASE_URL at import time in app/db/core.py, so we
     # have to set it before any `from database import db` happens.
-    os.environ["DATABASE_URL"] = _TEST_DB_URL
+    os.environ["DATABASE_URL"] = _with_search_path(_TEST_DB_URL, _TEST_DB_SCHEMA)
     os.environ.setdefault("EVENT_SINKS_ENABLED", "0")
     from app.ops_metrics import ops_metrics
 else:
@@ -62,6 +95,24 @@ def _skip_if_no_test_db():
         )
 
 
+def _parallel_workers_requested(config: pytest.Config) -> bool:
+    try:
+        numprocesses = config.getoption("numprocesses")
+    except Exception:
+        return False
+    if numprocesses in (None, 0, "0"):
+        return False
+    return True
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    if _parallel_workers_requested(config) and not _TEST_DB_URL:
+        raise pytest.UsageError(
+            "Parallel CropSentinel backend tests require CROPPRO_TEST_DATABASE_URL "
+            "so each worker can isolate itself in its own Postgres schema."
+        )
+
+
 # ---------------------------------------------------------------------------
 # Session-scoped: import app lazily, init schema once.
 # ---------------------------------------------------------------------------
@@ -71,12 +122,12 @@ def _app_module():
     # Deferred import so the skip above fires before psycopg2 connects.
     from database import db
     from app.analytics_pipeline import analytics_pipeline
-    from app.event_bus import internal_event_bus
     from main import app
     from app import core as _app_core
     from app.event_workers import internal_event_workers
 
-    db.init_db()
+    with _shared_test_db_lock():
+        db.init_db()
     asyncio.run(internal_event_workers.start())
     asyncio.run(analytics_pipeline.start())
 
@@ -91,8 +142,9 @@ def _app_module():
     # app.state.{license, seat_enforcer} are never initialized by the
     # normal startup path. Set the minimum state the routes look for:
     #   - license = None   -> has_feature() returns True only when bootstrap mode is off
-    #   - seat_enforcer     -> required by /api/machines/register
+    #   - seat_enforcer    -> required by /api/machines/register
     from licensing import SeatEnforcer
+
     app.state.license = None
     app.state.license_bootstrap = False
     app.state.license_error = ""
@@ -159,21 +211,56 @@ _TRUNCATE_TABLES = [
     "tenants",
 ]
 
+_TEST_DB_LOCK_KEY = zlib.crc32(
+    f"CropSentinel/backend/tests/shared-postgres-lock:{_TEST_DB_SCHEMA or 'default'}".encode("utf-8")
+) & 0x7FFFFFFF
+
+
+@contextlib.contextmanager
+def _shared_test_db_lock():
+    from app.db.core import get_pool
+
+    pool = get_pool()
+    conn = pool.getconn()
+    conn.autocommit = False
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT pg_advisory_lock(%s)", (_TEST_DB_LOCK_KEY,))
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT pg_advisory_unlock(%s)", (_TEST_DB_LOCK_KEY,))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            pool.putconn(conn)
+
 
 @pytest.fixture(autouse=True)
 def _clean_db():
-    """Runs before every test. No-op when no test DB is configured, so that
-    pure-unit tests (e.g. ``test_passwords.py``) still run without Postgres."""
+    """Reset shared state before every test.
+
+    When multiple pytest workers or sessions point at the same Postgres test
+    database, keep one test active at a time. This prevents TRUNCATE deadlocks
+    and avoids wiping tenant rows while another ASGI request is mid-flight.
+    """
     if not _TEST_DB_URL:
         yield
         return
 
-    from app.db.core import Connection as _Conn, clear_tenant_context
-    from app.analytics_pipeline import analytics_pipeline
-    from database import db  # noqa: F401 — ensures schema-init path is reachable
     from app import core as _app_core
+    from app.analytics_pipeline import analytics_pipeline
+    from app.db.core import clear_tenant_context
     from app.evidence_storage import evidence_storage
     from app.event_workers import internal_event_workers
+    from database import db  # noqa: F401 - ensures schema-init path is reachable
     from main import app
 
     # In-process login-throttle state is a module-level dict. If tests leave
@@ -197,36 +284,38 @@ def _clean_db():
         ops_metrics.reset()
 
     clear_tenant_context()
-    with _Conn() as conn:
-        with conn.cursor() as cur:
-            # Not every table exists in every build — ignore missing ones.
-            existing = cur.execute(
-                "SELECT tablename FROM pg_tables WHERE schemaname='public'"
-            )
-            rows = cur.fetchall() or []
-            present = {r["tablename"] for r in rows}
-            targets = [t for t in _TRUNCATE_TABLES if t in present]
-            if targets:
+    try:
+        with _shared_test_db_lock() as lock_conn:
+            with lock_conn.cursor() as cur:
+                cur.execute("SELECT tablename FROM pg_tables WHERE schemaname = current_schema()")
+                rows = cur.fetchall() or []
+                present = {row["tablename"] for row in rows}
+                targets = [table for table in _TRUNCATE_TABLES if table in present]
+                if targets:
+                    cur.execute(f"TRUNCATE {', '.join(targets)} RESTART IDENTITY CASCADE")
                 cur.execute(
-                    f"TRUNCATE {', '.join(targets)} RESTART IDENTITY CASCADE"
+                    """
+                    INSERT INTO tenants (id, slug, name, status, enrollment_token,
+                                         customer_name, tier, max_seats, grace_days)
+                    VALUES (1, 'default', 'Default Tenant', 'active',
+                            'cpet_test_default', 'Default', 'enterprise', 0, 14)
+                    ON CONFLICT (id) DO NOTHING
+                    """
                 )
-            # Reseed default tenant so tenant_id=1 FKs keep resolving.
-            cur.execute(
-                """
-                INSERT INTO tenants (id, slug, name, status, enrollment_token,
-                                     customer_name, tier, max_seats, grace_days)
-                VALUES (1, 'default', 'Default Tenant', 'active',
-                        'cpet_test_default', 'Default', 'enterprise', 0, 14)
-                ON CONFLICT (id) DO NOTHING
-                """
-            )
-            # Keep the tenants sequence ahead of the manual insert.
-            cur.execute("SELECT setval('tenants_id_seq', GREATEST((SELECT MAX(id) FROM tenants), 1))")
-    if evidence_storage.root.exists():
-        shutil.rmtree(evidence_storage.root, ignore_errors=True)
-    Path(evidence_storage.root).mkdir(parents=True, exist_ok=True)
-    yield
-    clear_tenant_context()
+                cur.execute(
+                    "SELECT setval('tenants_id_seq', GREATEST((SELECT MAX(id) FROM tenants), 1))"
+                )
+            # The advisory lock is session-scoped and survives commit. Commit
+            # the cleanup work here so the app's other pooled connections can
+            # see the reset tenant state during the test body.
+            lock_conn.commit()
+
+        if evidence_storage.root.exists():
+            shutil.rmtree(evidence_storage.root, ignore_errors=True)
+        Path(evidence_storage.root).mkdir(parents=True, exist_ok=True)
+        yield
+    finally:
+        clear_tenant_context()
 
 
 # ---------------------------------------------------------------------------
@@ -299,7 +388,6 @@ def make_user(db) -> Callable[..., dict]:
                 "created_by": "pytest",
             }
         )
-        # Echo the plaintext password back so the test can log in.
         return {
             "id": user_id,
             "tenant_id": tenant_id,
@@ -315,13 +403,7 @@ def make_user(db) -> Callable[..., dict]:
 
 @pytest.fixture
 async def auth_headers(api, make_user) -> Callable[..., dict]:
-    """Log in as a freshly-created user and return Bearer headers.
-
-    Usage::
-
-        headers = await auth_headers(role="admin")
-        resp = await api.get("/api/machines", headers=headers)
-    """
+    """Log in as a freshly-created user and return Bearer headers."""
 
     async def _factory(
         role: str = "admin",

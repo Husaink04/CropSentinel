@@ -179,6 +179,16 @@ async def test_require_feature_reports_returns_402_when_not_licensed(
     assert "license" in resp.json()["detail"].lower()
 
 
+async def test_reports_permission_denied_before_license_check_for_unauthorized_role(
+    api, auth_headers, no_features_license
+):
+    """Unauthorized users must not learn whether reports are licensed."""
+    headers = await auth_headers(role="viewer")
+    resp = await api.get("/api/reports/generate/m-test", headers=headers)
+    assert resp.status_code == 403
+    assert "permission denied" in resp.json()["detail"].lower()
+
+
 async def test_require_feature_audit_export_returns_402_when_not_licensed(
     api, auth_headers, no_features_license
 ):

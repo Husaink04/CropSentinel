@@ -1,4 +1,4 @@
-﻿"""
+"""
 CropSentinel Employee Monitoring Agent
 Monitor. Detect. Protect.
 Cross-platform: Windows / macOS / Linux
@@ -57,6 +57,8 @@ def _load_config_env():
     }
     system_name = platform.system()
     candidates = []
+    candidates.append(_P(__file__).parent / ".env")
+    candidates.append(_P(__file__).parent.parent / ".env")
     if system_name == "Windows":
         candidates.append(_P(os.environ.get("PROGRAMDATA", r"C:\ProgramData")) / "CropSentinel" / "config.env")
     elif system_name == "Linux":
@@ -69,7 +71,6 @@ def _load_config_env():
             _P("/Library/Application Support/CropSentinel/config.env"),
             _P.home() / "Library" / "Application Support" / "CropSentinel" / "config.env",
         ])
-    candidates.append(_P(__file__).parent / ".env")
     for cf in candidates:
         try:
             if not cf.exists():

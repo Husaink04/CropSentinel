@@ -994,7 +994,9 @@ def _ensure_partition_table(cur, table_name: str, dt: datetime) -> None:
 
 
 def _table_exists(cur, table_name: str) -> bool:
-    cur.execute("SELECT to_regclass(%s) AS reg", (f"public.{table_name}",))
+    cur.execute("SELECT current_schema() AS schema_name")
+    schema_name = (cur.fetchone() or {}).get("schema_name") or "public"
+    cur.execute("SELECT to_regclass(%s) AS reg", (f"{schema_name}.{table_name}",))
     row = cur.fetchone() or {}
     return bool(row.get("reg"))
 
@@ -1006,7 +1008,7 @@ def _is_partitioned_table(cur, table_name: str) -> bool:
         FROM pg_partitioned_table p
         JOIN pg_class c ON c.oid = p.partrelid
         JOIN pg_namespace n ON n.oid = c.relnamespace
-        WHERE n.nspname = 'public' AND c.relname = %s
+        WHERE n.nspname = current_schema() AND c.relname = %s
         """,
         (table_name,),
     )
@@ -1049,7 +1051,7 @@ def _migrate_partitioned_table(cur, logger, table_name: str) -> None:
         """
         SELECT column_name
         FROM information_schema.columns
-        WHERE table_schema = 'public' AND table_name = %s
+        WHERE table_schema = current_schema() AND table_name = %s
         ORDER BY ordinal_position
         """,
         (table_name,),
@@ -1059,7 +1061,7 @@ def _migrate_partitioned_table(cur, logger, table_name: str) -> None:
         """
         SELECT column_name
         FROM information_schema.columns
-        WHERE table_schema = 'public' AND table_name = %s
+        WHERE table_schema = current_schema() AND table_name = %s
         """,
         (legacy_name,),
     )
@@ -1081,11 +1083,11 @@ def initialize_schema(cur, logger, reset_requested: bool) -> None:
         """
         SELECT EXISTS (
             SELECT 1 FROM information_schema.tables
-            WHERE table_name = 'tenants'
+            WHERE table_schema = current_schema() AND table_name = 'tenants'
         ) AS has_tenants,
         EXISTS (
             SELECT 1 FROM information_schema.tables
-            WHERE table_name = 'machines'
+            WHERE table_schema = current_schema() AND table_name = 'machines'
         ) AS has_machines
         """
     )
@@ -1108,7 +1110,7 @@ def initialize_schema(cur, logger, reset_requested: bool) -> None:
         cur.execute(
             """
             SELECT column_name FROM information_schema.columns
-            WHERE table_name = 'network_activity' AND column_name = 'listening_ports'
+            WHERE table_schema = current_schema() AND table_name = 'network_activity' AND column_name = 'listening_ports'
             """
         )
         if not cur.fetchone():
@@ -1117,7 +1119,7 @@ def initialize_schema(cur, logger, reset_requested: bool) -> None:
         cur.execute(
             """
             SELECT column_name FROM information_schema.columns
-            WHERE table_name = 'file_activity' AND column_name = 'file_name'
+            WHERE table_schema = current_schema() AND table_name = 'file_activity' AND column_name = 'file_name'
             """
         )
         if not cur.fetchone():
@@ -1130,7 +1132,7 @@ def initialize_schema(cur, logger, reset_requested: bool) -> None:
         cur.execute(
             """
             SELECT column_name FROM information_schema.columns
-            WHERE table_name = 'settings' AND column_name = 'tenant_id'
+            WHERE table_schema = current_schema() AND table_name = 'settings' AND column_name = 'tenant_id'
             """
         )
         if not cur.fetchone():
@@ -1139,7 +1141,7 @@ def initialize_schema(cur, logger, reset_requested: bool) -> None:
             # exists without the column.
             cur.execute(
                 "SELECT 1 FROM information_schema.tables "
-                "WHERE table_name = 'settings'"
+                "WHERE table_schema = current_schema() AND table_name = 'settings'"
             )
             if cur.fetchone():
                 logger.warning(
