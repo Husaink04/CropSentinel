@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { usePlatformApi } from './PlatformLayout'
+import { usePlatformApi, usePlatformAuth } from './PlatformLayout'
 import { InlineBanner, PageStateView } from '../components/ui/PageState'
 import { usePageContext } from '../hooks/usePageContext'
 
@@ -12,11 +12,16 @@ const fmtDate = ts => {
 
 export default function PlatformDashboard() {
   const api = usePlatformApi()
+  const { token } = usePlatformAuth()
   const navigate = useNavigate()
   const { setPageContext, clearPageContext } = usePageContext()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
+  const [uploadMessage, setUploadMessage] = useState('')
+  const fileInputRef = useRef(null)
 
   const fetchStats = useCallback(async () => {
     setLoading(true)
@@ -47,11 +52,48 @@ export default function PlatformDashboard() {
     license_customer: '--',
     max_seats: 0,
     license_expires: null,
+    license_bootstrap_mode: false,
+    license_error: '',
     tenant_list: [],
   }
 
   const seatPct = safe.max_seats ? Math.round((safe.active_seats / safe.max_seats) * 100) : 0
   const tenantPct = safe.max_tenants ? Math.round((safe.active_tenants / safe.max_tenants) * 100) : 0
+  const isBootstrap = Boolean(safe.license_bootstrap_mode)
+
+  const openLicensePicker = useCallback(() => {
+    setUploadError('')
+    setUploadMessage('')
+    fileInputRef.current?.click()
+  }, [])
+
+  const uploadLicense = useCallback(async (event) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    setUploading(true)
+    setUploadError('')
+    setUploadMessage('')
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      const res = await fetch('/api/license/upload', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: form,
+      })
+      const payload = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(payload?.detail || payload?.message || 'License upload failed')
+      }
+      setUploadMessage(`License installed: ${payload?.license?.license_id || file.name}`)
+      await fetchStats()
+    } catch (err) {
+      setUploadError(err.message || 'License upload failed')
+    } finally {
+      setUploading(false)
+    }
+  }, [fetchStats, token])
 
   return (
     <div className="fade-in">
@@ -75,6 +117,51 @@ export default function PlatformDashboard() {
           onAction={fetchStats}
           onClose={() => setError(null)}
         />
+      )}
+
+      {isBootstrap && (
+        <div style={{ marginBottom: 12 }}>
+          <InlineBanner
+            tone="warning"
+            title="License required before tenant rollout"
+            message={
+              safe.license_error
+                ? `${safe.license_error}. Upload the signed customer or MSP license.key file to activate seats, tenant limits, and licensed features.`
+                : 'Upload the signed customer or MSP license.key file to activate seats, tenant limits, and licensed features.'
+            }
+            actionLabel={uploading ? 'Uploading...' : 'Upload license.key'}
+            onAction={uploading ? undefined : openLicensePicker}
+          />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".key,application/json"
+            style={{ display: 'none' }}
+            onChange={uploadLicense}
+          />
+        </div>
+      )}
+
+      {uploadError && (
+        <div style={{ marginBottom: 12 }}>
+          <InlineBanner
+            tone="danger"
+            title="License upload failed"
+            message={uploadError}
+            onClose={() => setUploadError('')}
+          />
+        </div>
+      )}
+
+      {uploadMessage && (
+        <div style={{ marginBottom: 12 }}>
+          <InlineBanner
+            tone="info"
+            title="License installed"
+            message={uploadMessage}
+            onClose={() => setUploadMessage('')}
+          />
+        </div>
       )}
 
       <PageStateView
