@@ -10,6 +10,19 @@ const fmtDate = ts => {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
+async function parseUploadResponse(res) {
+  const contentType = res.headers.get('content-type') || ''
+  if (contentType.includes('application/json')) {
+    return res.json().catch(() => ({}))
+  }
+  const text = await res.text().catch(() => '')
+  return {
+    detail: text.trim().startsWith('<')
+      ? 'Server returned an unexpected HTML response.'
+      : (text || 'License upload failed'),
+  }
+}
+
 export default function PlatformDashboard() {
   const api = usePlatformApi()
   const { token } = usePlatformAuth()
@@ -82,7 +95,7 @@ export default function PlatformDashboard() {
         headers: { Authorization: `Bearer ${token}` },
         body: form,
       })
-      const payload = await res.json().catch(() => ({}))
+      const payload = await parseUploadResponse(res)
       if (!res.ok) {
         throw new Error(payload?.detail || payload?.message || 'License upload failed')
       }

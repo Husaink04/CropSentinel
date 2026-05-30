@@ -398,8 +398,15 @@ async def upload_license(
     os.makedirs(os.path.dirname(target_path) or ".", exist_ok=True)
     tmp_path = target_path + ".upload.tmp"
     try:
-        with open(tmp_path, "wb") as handle:
-            handle.write(raw)
+        try:
+            with open(tmp_path, "wb") as handle:
+                handle.write(raw)
+        except OSError as exc:
+            logger.exception("License upload failed while writing temp file")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Could not write uploaded license file to {tmp_path}: {exc}",
+            )
         try:
             new_license = load_and_verify_license(license_path=tmp_path)
         except LicenseError as exc:
@@ -431,7 +438,14 @@ async def upload_license(
                     "or contact HAAK IT Solutions for an MSP license."
                 ),
             )
-        os.replace(tmp_path, target_path)
+        try:
+            os.replace(tmp_path, target_path)
+        except OSError as exc:
+            logger.exception("License upload failed while replacing active license")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Could not activate uploaded license at {target_path}: {exc}",
+            )
     finally:
         if os.path.exists(tmp_path):
             try:
