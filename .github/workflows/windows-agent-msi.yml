@@ -34,9 +34,18 @@ jobs:
           }
           pip install pyinstaller pillow
 
-      - name: Install WiX Toolset
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Install WiX Toolset v7 CLI
         shell: pwsh
-        run: choco install wixtoolset --yes --no-progress
+        run: |
+          dotnet tool install --global wix --version 7.*
+          "$env:USERPROFILE\.dotnet\tools" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          $env:PATH = "$env:USERPROFILE\.dotnet\tools;$env:PATH"
+          wix --version
 
       - name: Build Windows setup EXE
         shell: pwsh
