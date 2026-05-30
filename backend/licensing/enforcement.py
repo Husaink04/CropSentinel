@@ -73,7 +73,7 @@ class SeatEnforcer:
     One instance is created at startup and lives on app.state.seat_enforcer.
     """
 
-    def __init__(self, db, license_info_provider):
+    def __init__(self, db, license_info_provider, bootstrap_mode_provider=None):
         """
         Args:
             db:                   the database module (backend.database.db)
@@ -84,6 +84,7 @@ class SeatEnforcer:
         """
         self._db = db
         self._get_license = license_info_provider
+        self._is_bootstrap = bootstrap_mode_provider or (lambda: False)
         self._lock = threading.Lock()
         self._cached_count: int = 0
         self._cached_at: float = 0.0
@@ -128,6 +129,18 @@ class SeatEnforcer:
 
         # ── Unlicensed dev mode: allow everything, but log ──────────────
         if license_info is None:
+            if self._is_bootstrap():
+                return SeatDecision(
+                    allowed=False,
+                    reason=(
+                        "A valid platform license is required before agent enrollment "
+                        "can begin. Sign in to platform administration and upload the "
+                        "customer license.key file."
+                    ),
+                    active_seats=0,
+                    max_seats=0,
+                    is_new_machine=True,
+                )
             logger.warning(
                 "SeatEnforcer: allowing registration in UNLICENSED dev mode (machine_id=%s)",
                 machine_id,

@@ -20,6 +20,8 @@ async def platform_stats(request: Request, user=Depends(require_platform_admin))
     total_machines = sum(t.get("machine_count", 0) for t in tenants)
     total_users = sum(t.get("user_count", 0) for t in tenants)
     lic = getattr(request.app.state, "license", None)
+    bootstrap_mode = getattr(request.app.state, "license_bootstrap", False)
+    license_error = getattr(request.app.state, "license_error", "")
     enforcer = getattr(request.app.state, "seat_enforcer", None)
     active_seats = enforcer.active_count() if enforcer else 0
     return {
@@ -33,6 +35,8 @@ async def platform_stats(request: Request, user=Depends(require_platform_admin))
         "license_tier": lic.tier if lic else "unlicensed",
         "license_customer": lic.customer if lic else None,
         "license_expires": lic.expires_at.isoformat() if lic else None,
+        "license_bootstrap_mode": bootstrap_mode,
+        "license_error": license_error if bootstrap_mode else "",
         "tenant_list": [
             {
                 "id": t["id"],

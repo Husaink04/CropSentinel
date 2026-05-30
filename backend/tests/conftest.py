@@ -90,12 +90,16 @@ def _app_module():
     # httpx.ASGITransport does NOT run FastAPI's lifespan events, so
     # app.state.{license, seat_enforcer} are never initialized by the
     # normal startup path. Set the minimum state the routes look for:
-    #   - license = None   -> has_feature() returns True (dev-unlocked)
+    #   - license = None   -> has_feature() returns True only when bootstrap mode is off
     #   - seat_enforcer     -> required by /api/machines/register
     from licensing import SeatEnforcer
     app.state.license = None
+    app.state.license_bootstrap = False
+    app.state.license_error = ""
     app.state.seat_enforcer = SeatEnforcer(
-        db=db, license_info_provider=lambda: getattr(app.state, "license", None)
+        db=db,
+        license_info_provider=lambda: getattr(app.state, "license", None),
+        bootstrap_mode_provider=lambda: getattr(app.state, "license_bootstrap", False),
     )
 
     return app, db

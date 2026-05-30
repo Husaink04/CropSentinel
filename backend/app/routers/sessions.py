@@ -18,7 +18,9 @@ class SessionStartRequest(BaseModel):
 @router.get("/api/sessions/machines/{machine_id}/capabilities")
 async def get_session_capabilities(request: Request, machine_id: str, user=Depends(require_permission("machines.view"))):
     check_machine_access(user, machine_id)
-    live_remote_feature = license_has_feature(getattr(request.app.state, "license", None), "remote_access")
+    lic = getattr(request.app.state, "license", None)
+    bootstrap_mode = getattr(request.app.state, "license_bootstrap", False)
+    live_remote_feature = False if lic is None and bootstrap_mode else license_has_feature(lic, "remote_access")
     capabilities = session_capabilities(user, machine_id, remote_access_licensed=live_remote_feature)
     capabilities["online"] = machine_id in manager.online()
     return capabilities

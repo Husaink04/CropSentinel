@@ -256,6 +256,14 @@ async def require_platform_admin(user=Depends(get_current_user)):
 def require_feature(feature_name: str):
     async def _check(request: Request):
         lic = getattr(request.app.state, "license", None)
+        if lic is None and getattr(request.app.state, "license_bootstrap", False):
+            raise HTTPException(
+                status_code=402,
+                detail=(
+                    "A valid platform license must be uploaded before this feature is available. "
+                    "Sign in to platform administration and install the customer license.key file."
+                ),
+            )
         if not license_has_feature(lic, feature_name):
             raise HTTPException(
                 status_code=402,

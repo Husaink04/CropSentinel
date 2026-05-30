@@ -474,7 +474,8 @@ async def handle_admin_websocket(websocket: WebSocket, app):
                     continue
                 if session_kind == "remote":
                     lic = getattr(app.state, "license", None)
-                    if not license_has_feature(lic, "remote_access"):
+                    bootstrap_mode = getattr(app.state, "license_bootstrap", False)
+                    if (lic is None and bootstrap_mode) or not license_has_feature(lic, "remote_access"):
                         await websocket.send_json(
                             jsonable_encoder({
                                 "type": "webrtc_error",

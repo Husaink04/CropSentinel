@@ -28,6 +28,10 @@ from app.ws_service import manager
 
 logger = logging.getLogger("croppro")
 
+
+def _license_runtime_path() -> str:
+    return os.environ.get("CROPPRO_LICENSE_PATH", "license.key")
+
 DEFAULT_SETTINGS = {
     "company_name": "CropSentinel",
     "company_logo": "",
@@ -116,6 +120,9 @@ async def lifespan(app):
         list(getattr(app.state, "route_families", ()) or []),
     )
     enforce = os.environ.get("CROPPRO_LICENSE_ENFORCE", "1") != "0"
+    app.state.license = None
+    app.state.license_bootstrap = False
+    app.state.license_error = ""
     try:
         app.state.license = load_and_verify_license()
         logger.info(
@@ -128,15 +135,23 @@ async def lifespan(app):
         if app.state.license.is_in_grace():
             logger.warning("License is in grace period - renew immediately.")
     except LicenseError as exc:
+        app.state.license_error = str(exc)
         if enforce:
-            logger.error("LICENSE CHECK FAILED: %s", exc)
-            raise SystemExit(1)
-        logger.warning("CROPPRO_LICENSE_ENFORCE=0 - running without a valid license: %s", exc)
-        app.state.license = None
+            app.state.license_bootstrap = True
+            logger.warning(
+                "LICENSE CHECK FAILED: %s. Entering restricted bootstrap mode; "
+                "platform admin can upload a license at %s.",
+                exc,
+                _license_runtime_path(),
+            )
+        else:
+            logger.warning("CROPPRO_LICENSE_ENFORCE=0 - running without a valid license: %s", exc)
+            app.state.license = None
 
     app.state.seat_enforcer = SeatEnforcer(
         db=db,
         license_info_provider=lambda: getattr(app.state, "license", None),
+        bootstrap_mode_provider=lambda: getattr(app.state, "license_bootstrap", False),
     )
 
     if schema_owner:

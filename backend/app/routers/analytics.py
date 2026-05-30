@@ -332,6 +332,8 @@ async def download_report_job(
 @router.get("/api/license/info")
 async def get_license_info(request: Request, user=Depends(require_permission("settings.view"))):
     lic = getattr(request.app.state, "license", None)
+    bootstrap_mode = getattr(request.app.state, "license_bootstrap", False)
+    license_error = getattr(request.app.state, "license_error", "")
     enforcer: Optional[SeatEnforcer] = getattr(request.app.state, "seat_enforcer", None)
     active_seats = 0
     total_seats = 0
@@ -345,9 +347,13 @@ async def get_license_info(request: Request, user=Depends(require_permission("se
         logger.warning("License info: failed to compute seat counts: %s", exc)
 
     if lic is None:
+        reason = "No valid license loaded. Running in unlicensed dev mode."
+        if bootstrap_mode:
+            reason = license_error or "No valid platform license loaded."
         return {
             "licensed": False,
-            "reason": "No valid license loaded. Running in unlicensed dev mode.",
+            "bootstrap_mode": bootstrap_mode,
+            "reason": reason,
             "usage": {
                 "active_seats": active_seats,
                 "total_machines": total_seats,
@@ -389,6 +395,7 @@ async def upload_license(
         raise HTTPException(status_code=400, detail="License file is empty or too large.")
 
     target_path = os.environ.get("CROPPRO_LICENSE_PATH", "license.key")
+    os.makedirs(os.path.dirname(target_path) or ".", exist_ok=True)
     tmp_path = target_path + ".upload.tmp"
     try:
         with open(tmp_path, "wb") as handle:
@@ -433,6 +440,8 @@ async def upload_license(
                 pass
 
     request.app.state.license = new_license
+    request.app.state.license_bootstrap = False
+    request.app.state.license_error = ""
     enforcer = getattr(request.app.state, "seat_enforcer", None)
     if enforcer is not None:
         enforcer.invalidate()

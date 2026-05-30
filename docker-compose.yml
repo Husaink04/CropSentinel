@@ -148,7 +148,6 @@ services:
       - "8000:8000"
     volumes:
       - croppro_reports:/app/reports
-      - ./license.key:/app/license.key:ro
       - ./backend/dist/installers:/app/dist/installers
       - ./backend/storage:/app/storage
       - ./backend/storage/logs:/app/logs
@@ -160,7 +159,7 @@ services:
       DEFAULT_AGENT_STOP_PASSWORD: ${DEFAULT_AGENT_STOP_PASSWORD}
       AGENT_API_KEY: ${AGENT_API_KEY:-}
       CORS_ORIGINS: ${CORS_ORIGINS:-*}
-      CROPPRO_LICENSE_PATH: /app/license.key
+      CROPPRO_LICENSE_PATH: /app/storage/license/license.key
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       EVENT_BUS_BACKEND: ${EVENT_BUS_BACKEND:-noop}
       EVENT_BUS_CONSUME_EXTERNAL: ${EVENT_BUS_CONSUME_EXTERNAL:-0}
@@ -228,7 +227,6 @@ services:
     command: ["sh", "-c", "uvicorn agent_control_main:app --host ${BACKEND_HOST:-0.0.0.0} --port ${BACKEND_PORT:-8000} --workers ${AGENT_CONTROL_WORKERS:-2}"]
     volumes:
       - croppro_reports:/app/reports
-      - ./license.key:/app/license.key:ro
       - ./backend/storage:/app/storage
       - ./backend/storage/logs:/app/logs
     environment:
@@ -239,7 +237,7 @@ services:
       DEFAULT_AGENT_STOP_PASSWORD: ${DEFAULT_AGENT_STOP_PASSWORD}
       AGENT_API_KEY: ${AGENT_API_KEY:-}
       CORS_ORIGINS: ${CORS_ORIGINS:-*}
-      CROPPRO_LICENSE_PATH: /app/license.key
+      CROPPRO_LICENSE_PATH: /app/storage/license/license.key
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       EVENT_BUS_BACKEND: ${EVENT_BUS_BACKEND:-noop}
       EVENT_BUS_CONSUME_EXTERNAL: ${EVENT_BUS_CONSUME_EXTERNAL:-1}
@@ -285,7 +283,6 @@ services:
     command: ["sh", "-c", "uvicorn monitoring_main:app --host ${BACKEND_HOST:-0.0.0.0} --port ${BACKEND_PORT:-8000} --workers ${MONITORING_WORKERS:-2}"]
     volumes:
       - croppro_reports:/app/reports
-      - ./license.key:/app/license.key:ro
       - ./backend/storage:/app/storage
       - ./backend/storage/logs:/app/logs
     environment:
@@ -296,7 +293,7 @@ services:
       DEFAULT_AGENT_STOP_PASSWORD: ${DEFAULT_AGENT_STOP_PASSWORD}
       AGENT_API_KEY: ${AGENT_API_KEY:-}
       CORS_ORIGINS: ${CORS_ORIGINS:-*}
-      CROPPRO_LICENSE_PATH: /app/license.key
+      CROPPRO_LICENSE_PATH: /app/storage/license/license.key
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       EVENT_BUS_BACKEND: ${EVENT_BUS_BACKEND:-noop}
       EVENT_BUS_CONSUME_EXTERNAL: ${EVENT_BUS_CONSUME_EXTERNAL:-1}
@@ -346,7 +343,6 @@ services:
     command: ["sh", "-c", "uvicorn realtime_main:app --host ${BACKEND_HOST:-0.0.0.0} --port ${BACKEND_PORT:-8000} --workers ${REALTIME_WORKERS:-1}"]
     volumes:
       - croppro_reports:/app/reports
-      - ./license.key:/app/license.key:ro
       - ./backend/storage:/app/storage
       - ./backend/storage/logs:/app/logs
     environment:
@@ -357,7 +353,7 @@ services:
       DEFAULT_AGENT_STOP_PASSWORD: ${DEFAULT_AGENT_STOP_PASSWORD}
       AGENT_API_KEY: ${AGENT_API_KEY:-}
       CORS_ORIGINS: ${CORS_ORIGINS:-*}
-      CROPPRO_LICENSE_PATH: /app/license.key
+      CROPPRO_LICENSE_PATH: /app/storage/license/license.key
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       EVENT_BUS_BACKEND: ${EVENT_BUS_BACKEND:-noop}
       EVENT_BUS_CONSUME_EXTERNAL: ${EVENT_BUS_CONSUME_EXTERNAL:-1}
