@@ -394,9 +394,9 @@ async def upload_license(
     if not raw or len(raw) > 64 * 1024:
         raise HTTPException(status_code=400, detail="License file is empty or too large.")
 
-    target_path = os.environ.get("CROPPRO_LICENSE_PATH", "license.key")
-    os.makedirs(os.path.dirname(target_path) or ".", exist_ok=True)
-    tmp_path = target_path + ".upload.tmp"
+    target_path = Path(os.environ.get("CROPPRO_LICENSE_PATH", "license.key"))
+    os.makedirs(target_path.parent, exist_ok=True)
+    tmp_path = Path(f"{target_path}.upload.tmp")
     try:
         try:
             with open(tmp_path, "wb") as handle:
@@ -447,7 +447,7 @@ async def upload_license(
                 detail=f"Could not activate uploaded license at {target_path}: {exc}",
             )
     finally:
-        if os.path.exists(tmp_path):
+        if tmp_path.exists():
             try:
                 os.remove(tmp_path)
             except OSError:
