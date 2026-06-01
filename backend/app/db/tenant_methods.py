@@ -21,6 +21,7 @@ class TenantMethodsMixin:
         max_seats: int = 0,
         valid_days: Optional[int] = None,
         grace_days: int = 14,
+        parent_tenant_id: Optional[int] = None,
     ) -> int:
         token = self._new_enrollment_token()
         with _Conn() as conn:
@@ -30,7 +31,7 @@ class TenantMethodsMixin:
                     INSERT INTO tenants (
                         slug, name, status, enrollment_token,
                         customer_name, tier, max_seats,
-                        valid_until, grace_days,
+                        valid_until, grace_days, parent_tenant_id,
                         subscription_started
                     )
                     VALUES (
@@ -38,7 +39,7 @@ class TenantMethodsMixin:
                         %s, %s, %s,
                         CASE WHEN %s::int IS NULL THEN NULL
                              ELSE NOW() + (%s::int || ' days')::interval END,
-                        %s,
+                        %s, %s,
                         NOW()
                     )
                     RETURNING id
@@ -53,6 +54,7 @@ class TenantMethodsMixin:
                         valid_days,
                         valid_days,
                         int(grace_days or 14),
+                        parent_tenant_id,
                     ),
                 )
                 return int(cur.fetchone()["id"])
@@ -69,10 +71,21 @@ class TenantMethodsMixin:
                 row = cur.fetchone()
                 return row["enrollment_token"] if row else None
 
-    def get_tenant(self, tenant_id: int) -> Optional[dict]:
+    def get_tenant(self, tenant_id: int, *, accessible_tenant_id: Optional[int] = None) -> Optional[dict]:
         with _Conn() as conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT * FROM tenants WHERE id = %s", (tenant_id,))
+                if accessible_tenant_id is None:
+                    cur.execute("SELECT * FROM tenants WHERE id = %s", (tenant_id,))
+                else:
+                    cur.execute(
+                        """
+                        SELECT *
+                        FROM tenants
+                        WHERE id = %s
+                          AND (id = %s OR parent_tenant_id = %s)
+                        """,
+                        (tenant_id, accessible_tenant_id, accessible_tenant_id),
+                    )
                 r = cur.fetchone()
                 return dict(r) if r else None
 
@@ -95,16 +108,53 @@ class TenantMethodsMixin:
                 r = cur.fetchone()
                 return dict(r) if r else None
 
-    def get_all_tenants(self) -> List[dict]:
+    def get_all_tenants(self, *, parent_tenant_id: Optional[int] = None, include_parent: bool = False) -> List[dict]:
         with _Conn() as conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT * FROM tenants ORDER BY id")
+                if parent_tenant_id is None:
+                    cur.execute("SELECT * FROM tenants ORDER BY id")
+                elif include_parent:
+                    cur.execute(
+                        """
+                        SELECT *
+                        FROM tenants
+                        WHERE id = %s OR parent_tenant_id = %s
+                        ORDER BY id
+                        """,
+                        (parent_tenant_id, parent_tenant_id),
+                    )
+                else:
+                    cur.execute(
+                        "SELECT * FROM tenants WHERE parent_tenant_id = %s ORDER BY id",
+                        (parent_tenant_id,),
+                    )
                 return [dict(r) for r in cur.fetchall()]
 
-    def count_tenants(self) -> int:
+    def count_tenants(self, *, parent_tenant_id: Optional[int] = None, include_parent: bool = False) -> int:
         with _Conn() as conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT COUNT(*) AS c FROM tenants WHERE status = 'active'")
+                if parent_tenant_id is None:
+                    cur.execute("SELECT COUNT(*) AS c FROM tenants WHERE status = 'active'")
+                elif include_parent:
+                    cur.execute(
+                        """
+                        SELECT COUNT(*) AS c
+                        FROM tenants
+                        WHERE status = 'active'
+                          AND (id = %s OR parent_tenant_id = %s)
+                        """,
+                        (parent_tenant_id, parent_tenant_id),
+                    )
+                else:
+                    cur.execute(
+                        """
+                        SELECT COUNT(*) AS c
+                        FROM tenants
+                        WHERE status = 'active'
+                          AND parent_tenant_id = %s
+                        """,
+                        (parent_tenant_id,),
+                    )
                 return int(cur.fetchone()["c"])
 
     def update_tenant(
@@ -262,11 +312,25 @@ class TenantMethodsMixin:
                     stats[label] = cur.fetchone()["c"]
                 return stats
 
-    def get_all_tenants_with_stats(self) -> List[dict]:
+    def get_all_tenants_with_stats(
+        self,
+        *,
+        parent_tenant_id: Optional[int] = None,
+        include_parent: bool = False,
+    ) -> List[dict]:
         with _Conn() as conn:
             with conn.cursor() as cur:
+                params: tuple = ()
+                where_sql = ""
+                if parent_tenant_id is not None:
+                    if include_parent:
+                        where_sql = "WHERE t.id = %s OR t.parent_tenant_id = %s"
+                        params = (parent_tenant_id, parent_tenant_id)
+                    else:
+                        where_sql = "WHERE t.parent_tenant_id = %s"
+                        params = (parent_tenant_id,)
                 cur.execute(
-                    """
+                    f"""
                     SELECT t.*,
                            COALESCE(mc.cnt, 0) AS machine_count,
                            COALESCE(uc.cnt, 0) AS user_count
@@ -275,7 +339,33 @@ class TenantMethodsMixin:
                         ON mc.tenant_id = t.id
                     LEFT JOIN (SELECT tenant_id, COUNT(*) AS cnt FROM users GROUP BY tenant_id) uc
                         ON uc.tenant_id = t.id
+                    {where_sql}
                     ORDER BY t.id
-                    """
+                    """,
+                    params,
                 )
                 return [dict(r) for r in cur.fetchall()]
+
+    def sum_child_tenant_max_seats(self, parent_tenant_id: int, *, exclude_tenant_id: Optional[int] = None) -> int:
+        with _Conn() as conn:
+            with conn.cursor() as cur:
+                if exclude_tenant_id is None:
+                    cur.execute(
+                        """
+                        SELECT COALESCE(SUM(max_seats), 0) AS total
+                        FROM tenants
+                        WHERE parent_tenant_id = %s
+                        """,
+                        (parent_tenant_id,),
+                    )
+                else:
+                    cur.execute(
+                        """
+                        SELECT COALESCE(SUM(max_seats), 0) AS total
+                        FROM tenants
+                        WHERE parent_tenant_id = %s
+                          AND id <> %s
+                        """,
+                        (parent_tenant_id, exclude_tenant_id),
+                    )
+                return int(cur.fetchone()["total"] or 0)

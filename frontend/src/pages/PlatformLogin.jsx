@@ -99,6 +99,9 @@ export default function PlatformLogin() {
         role: data.role,
         display_name: data.display_name,
         tenant_id: data.tenant_id,
+        tenant_tier: data.tenant_tier,
+        is_msp: Boolean(data.is_msp),
+        portal_scope: data.portal_scope || 'platform',
       }))
       navigate('/platform')
     } catch (err) {

@@ -31,7 +31,7 @@ function usePlatformAuth() {
 
 function usePlatformApi() {
   const { token, logout } = usePlatformAuth()
-const apiBase = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
+  const apiBase = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
 
   const request = useCallback(async (path, options = {}) => {
     const headers = { Authorization: `Bearer ${token}`, ...options.headers }
@@ -41,7 +41,7 @@ const apiBase = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
       logout()
       throw new Error('Session expired')
     }
-    if (res.status === 403) throw new Error('Platform admin access required')
+    if (res.status === 403) throw new Error('You do not have access to this platform action')
     if (!res.ok) {
       const err = await res.json().catch(() => ({}))
       throw new Error(err.detail || `Request failed (${res.status})`)
@@ -120,7 +120,12 @@ export default function PlatformLayout() {
 
   const pageTitle = TITLES[location.pathname] || 'Platform Admin'
   const initials = (user?.display_name || user?.username || 'A').slice(0, 2).toUpperCase()
-  const activeNav = NAV.find((item) => item.exact ? location.pathname === item.to : location.pathname.startsWith(item.to))
+  const isMsp = Boolean(user?.is_msp)
+  const visibleNav = useMemo(
+    () => (isMsp ? NAV.filter((item) => item.to === '/platform' || item.to === '/platform/tenants') : NAV),
+    [isMsp],
+  )
+  const activeNav = visibleNav.find((item) => item.exact ? location.pathname === item.to : location.pathname.startsWith(item.to))
 
   return (
     <div className="platform-root">
@@ -133,17 +138,21 @@ export default function PlatformLayout() {
           </div>
           <div>
             <div className="platform-brand-name">CropSentinel</div>
-            <div className="platform-brand-sub">Platform Control</div>
+            <div className="platform-brand-sub">{isMsp ? 'MSP Partner Portal' : 'Platform Control'}</div>
           </div>
         </div>
 
         <div className="platform-sidebar-intro">
           <div className="platform-sidebar-eyebrow">Workspace</div>
-          <div className="platform-sidebar-copy">Manage tenants, agent access, and cross-tenant security from one place.</div>
+          <div className="platform-sidebar-copy">
+            {isMsp
+              ? 'Manage your client tenants, seat allocation, and partner operations from one place.'
+              : 'Manage tenants, agent access, and cross-tenant security from one place.'}
+          </div>
         </div>
 
         <nav className="platform-nav">
-          {NAV.map((n) => {
+          {visibleNav.map((n) => {
             const isActive = n.exact ? location.pathname === n.to : location.pathname.startsWith(n.to)
             return (
               <NavLink key={n.to} to={n.to} end={n.exact} className={`platform-nav-item${isActive ? ' active' : ''}`}>
@@ -161,7 +170,7 @@ export default function PlatformLayout() {
           <div className="platform-user-avatar">{initials}</div>
           <div className="platform-user-meta">
             <span className="platform-user-name">{user?.display_name || user?.username}</span>
-            <span className="platform-user-role">Platform Admin</span>
+            <span className="platform-user-role">{isMsp ? 'MSP Admin' : 'Platform Admin'}</span>
           </div>
           <button className="btn btn-ghost btn-sm platform-logout-btn" onClick={() => { logout(); navigate('/platform/login') }}>
             {I.logout}

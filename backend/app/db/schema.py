@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS tenants (
     customer_name        TEXT        DEFAULT '',
     tier                 TEXT        DEFAULT 'starter',
     max_seats            INTEGER     DEFAULT 0,
+    parent_tenant_id     INTEGER     REFERENCES tenants(id) ON DELETE SET NULL,
     valid_until          TIMESTAMPTZ,
     grace_days           INTEGER     DEFAULT 14,
     subscription_started TIMESTAMPTZ DEFAULT NOW(),
@@ -1230,11 +1231,28 @@ def initialize_schema(cur, logger, reset_requested: bool) -> None:
         "customer_name        TEXT DEFAULT ''",
         "tier                 TEXT DEFAULT 'starter'",
         "max_seats            INTEGER DEFAULT 0",
+        "parent_tenant_id     INTEGER",
         "valid_until          TIMESTAMPTZ",
         "grace_days           INTEGER DEFAULT 14",
         "subscription_started TIMESTAMPTZ DEFAULT NOW()",
     ):
         cur.execute(f"ALTER TABLE tenants ADD COLUMN IF NOT EXISTS {col_def}")
+    cur.execute(
+        """
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1
+                FROM pg_constraint
+                WHERE conname = 'tenants_parent_tenant_id_fkey'
+            ) THEN
+                ALTER TABLE tenants
+                ADD CONSTRAINT tenants_parent_tenant_id_fkey
+                FOREIGN KEY (parent_tenant_id) REFERENCES tenants(id) ON DELETE SET NULL;
+            END IF;
+        END $$;
+        """
+    )
 
     for col_def in (
         "geo_country      TEXT DEFAULT ''",

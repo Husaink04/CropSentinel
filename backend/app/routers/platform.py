@@ -4,7 +4,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Request
 
-from app.core import require_platform_admin
+from app.core import require_platform_admin, require_platform_or_msp_admin
 from app.repos.tenant_repo import tenant_repo
 from app.services.user_service import create_platform_user, delete_platform_user, list_platform_users
 from database import clear_tenant_context, set_tenant_context
@@ -14,7 +14,47 @@ router = APIRouter()
 
 
 @router.get("/api/platform/stats")
-async def platform_stats(request: Request, user=Depends(require_platform_admin)):
+async def platform_stats(request: Request, user=Depends(require_platform_or_msp_admin)):
+    is_msp = bool(user.get("is_msp"))
+    if is_msp:
+        root_tenant_id = int(user.get("tenant_id") or 1)
+        root_tenant = tenant_repo.get(root_tenant_id)
+        visible_tenants = tenant_repo.list_with_stats(parent_tenant_id=root_tenant_id, include_parent=True)
+        sub_tenants = [t for t in visible_tenants if int(t.get("parent_tenant_id") or 0) == root_tenant_id]
+        active_tenants = [t for t in sub_tenants if t.get("status") == "active"]
+        total_machines = sum(int(t.get("machine_count", 0) or 0) for t in sub_tenants)
+        total_users = sum(int(t.get("user_count", 0) or 0) for t in sub_tenants)
+        max_seats = int((root_tenant or {}).get("max_seats") or 0) or None
+        customer_name = (root_tenant or {}).get("customer_name") or (root_tenant or {}).get("name")
+        return {
+            "scope": "msp",
+            "tenants": len(sub_tenants),
+            "active_tenants": len(active_tenants),
+            "total_machines": total_machines,
+            "active_seats": total_machines,
+            "total_users": total_users,
+            "max_tenants": None,
+            "max_seats": max_seats,
+            "license_tier": (root_tenant or {}).get("tier", "msp"),
+            "license_customer": customer_name,
+            "license_expires": None,
+            "license_bootstrap_mode": False,
+            "license_error": "",
+            "tenant_list": [
+                {
+                    "id": t["id"],
+                    "name": t.get("name"),
+                    "slug": t.get("slug"),
+                    "status": t.get("status"),
+                    "machine_count": t.get("machine_count", 0),
+                    "user_count": t.get("user_count", 0),
+                    "created_at": str(t["created_at"]) if t.get("created_at") else None,
+                    "parent_tenant_id": t.get("parent_tenant_id"),
+                }
+                for t in sub_tenants
+            ],
+        }
+
     tenants = tenant_repo.list_with_stats()
     active_tenants = [t for t in tenants if t.get("status") == "active"]
     total_machines = sum(t.get("machine_count", 0) for t in tenants)

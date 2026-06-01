@@ -134,8 +134,16 @@ def platform_login(request: Request, username: str, password: str) -> dict:
     if not verify_password(password, stored):
         record_login_failure(username)
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    if user.get("role") != "admin" or int(user.get("tenant_id", 1)) != 1:
-        raise HTTPException(status_code=403, detail="Platform admin access required")
+    tenant_id = int(user.get("tenant_id", 1) or 1)
+    tenant = tenant_repo.get(tenant_id)
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Platform portal admin access required")
+    if not tenant or tenant.get("status") != "active":
+        raise HTTPException(status_code=403, detail="Tenant is inactive or missing")
+    is_platform_admin = tenant_id == 1
+    is_msp_admin = str(tenant.get("tier") or "").lower() == "msp"
+    if not is_platform_admin and not is_msp_admin:
+        raise HTTPException(status_code=403, detail="Platform portal access requires platform or MSP admin")
 
     clear_login_failures(username)
     upgraded = upgrade_hash_if_legacy(password, stored)
@@ -145,20 +153,25 @@ def platform_login(request: Request, username: str, password: str) -> dict:
         "sub": user["username"],
         "role": user["role"],
         "user_id": user["id"],
-        "tenant_id": 1,
+        "tenant_id": tenant_id,
         "display_name": user.get("display_name", ""),
         "assigned_machines": [],
-        "platform_admin": True,
+        "platform_admin": is_platform_admin,
+        "is_msp": not is_platform_admin,
+        "tenant_tier": tenant.get("tier", "starter"),
     }
     token = create_access_token(jwt_payload)
     audit_log(request, jwt_payload, "platform_login", "auth", user["username"])
     return {
         "access_token": token,
         "token_type": "bearer",
-        "role": "platform_admin",
+        "role": "platform_admin" if is_platform_admin else "msp_admin",
         "display_name": user.get("display_name", ""),
         "username": user["username"],
-        "tenant_id": 1,
+        "tenant_id": tenant_id,
+        "tenant_tier": tenant.get("tier", "starter"),
+        "is_msp": not is_platform_admin,
+        "portal_scope": "platform" if is_platform_admin else "msp",
     }
 
 
@@ -170,6 +183,8 @@ def build_profile(user: dict) -> dict:
         "display_name": user.get("display_name", ""),
         "assigned_machines": user.get("assigned_machines", []),
         "tenant_id": user.get("tenant_id", 1),
+        "tenant_tier": user.get("tenant_tier"),
+        "is_msp": bool(user.get("is_msp")),
     }
 
 

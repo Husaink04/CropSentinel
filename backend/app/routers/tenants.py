@@ -10,11 +10,38 @@ import zipfile
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import FileResponse, RedirectResponse
 
-from app.core import audit_log, require_platform_admin
+from app.core import audit_log, require_platform_or_msp_admin
 from database import db
 
 router = APIRouter()
 VALID_TIERS = ("starter", "professional", "enterprise", "msp")
+TIER_RANK = {
+    "starter": 1,
+    "professional": 2,
+    "enterprise": 3,
+    "msp": 4,
+}
+
+
+def _is_msp_user(user: dict) -> bool:
+    return bool(user.get("is_msp"))
+
+
+def _visible_tenant(tenant_id: int, user: dict) -> dict | None:
+    if _is_msp_user(user):
+        return db.get_tenant(tenant_id, accessible_tenant_id=int(user.get("tenant_id") or 1))
+    return db.get_tenant(tenant_id)
+
+
+def _manageable_child_tenant(tenant_id: int, user: dict) -> dict | None:
+    tenant = _visible_tenant(tenant_id, user)
+    if not tenant:
+        return None
+    if not _is_msp_user(user):
+        return tenant
+    if int(tenant.get("parent_tenant_id") or 0) != int(user.get("tenant_id") or 0):
+        return None
+    return tenant
 
 
 def _installer_version_key(path: Path) -> tuple[int, int, int]:
@@ -97,18 +124,26 @@ async def download_generic_agent_installer(platform: str):
 
 
 @router.get("/api/tenants")
-async def list_tenants(request: Request, user=Depends(require_platform_admin)):
-    tenants = db.get_all_tenants_with_stats()
+async def list_tenants(request: Request, user=Depends(require_platform_or_msp_admin)):
+    if _is_msp_user(user):
+        tenants = db.get_all_tenants_with_stats(
+            parent_tenant_id=int(user.get("tenant_id") or 1),
+            include_parent=True,
+        )
+        max_tenants = None
+    else:
+        tenants = db.get_all_tenants_with_stats()
+        lic = getattr(request.app.state, "license", None)
+        max_tenants = lic.max_tenants if lic else None
     for tenant in tenants:
         if tenant.get("created_at") is not None:
             tenant["created_at"] = str(tenant["created_at"])
-    lic = getattr(request.app.state, "license", None)
-    return {"tenants": tenants, "max_tenants": lic.max_tenants if lic else None}
+    return {"tenants": tenants, "max_tenants": max_tenants}
 
 
 @router.get("/api/tenants/{tenant_id}")
-async def get_tenant_detail(tenant_id: int, user=Depends(require_platform_admin)):
-    tenant = db.get_tenant(tenant_id)
+async def get_tenant_detail(tenant_id: int, user=Depends(require_platform_or_msp_admin)):
+    tenant = _visible_tenant(tenant_id, user)
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
     stats = db.get_tenant_stats(tenant_id)
@@ -120,7 +155,7 @@ async def get_tenant_detail(tenant_id: int, user=Depends(require_platform_admin)
 
 
 @router.post("/api/tenants")
-async def create_tenant(request: Request, user=Depends(require_platform_admin)):
+async def create_tenant(request: Request, user=Depends(require_platform_or_msp_admin)):
     data = await request.json()
     slug = (data.get("slug") or "").strip().lower().replace(" ", "-")
     name = (data.get("name") or "").strip()
@@ -144,14 +179,37 @@ async def create_tenant(request: Request, user=Depends(require_platform_admin)):
     if grace_days < 0:
         raise HTTPException(status_code=400, detail="grace_days must be >= 0")
 
-    lic = getattr(request.app.state, "license", None)
-    if lic:
-        current = db.count_tenants()
-        if current >= lic.max_tenants:
-            raise HTTPException(
-                status_code=403,
-                detail=f"Platform license allows max {lic.max_tenants} tenants. Currently at {current}.",
-            )
+    parent_tenant_id = None
+    if _is_msp_user(user):
+        caller_tenant_id = int(user.get("tenant_id") or 1)
+        caller_tenant = db.get_tenant(caller_tenant_id)
+        if not caller_tenant:
+            raise HTTPException(status_code=403, detail="MSP tenant not found")
+        if tier == "msp":
+            raise HTTPException(status_code=403, detail="MSP admins cannot create nested MSP tenants")
+        if TIER_RANK.get(tier, 0) >= TIER_RANK["msp"]:
+            raise HTTPException(status_code=403, detail="MSP admins cannot provision a tier above their scope")
+        licensed_seats = int(caller_tenant.get("max_seats") or 0)
+        if licensed_seats > 0:
+            allocated = db.sum_child_tenant_max_seats(caller_tenant_id)
+            if allocated + max_seats > licensed_seats:
+                raise HTTPException(
+                    status_code=402,
+                    detail=(
+                        f"MSP seat quota exceeded. Requested {max_seats} seats would raise the "
+                        f"sub-tenant allocation to {allocated + max_seats}, above the MSP limit of {licensed_seats}."
+                    ),
+                )
+        parent_tenant_id = caller_tenant_id
+    else:
+        lic = getattr(request.app.state, "license", None)
+        if lic:
+            current = db.count_tenants()
+            if current >= lic.max_tenants:
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"Platform license allows max {lic.max_tenants} tenants. Currently at {current}.",
+                )
 
     if db.get_tenant_by_slug(slug):
         raise HTTPException(status_code=409, detail=f"Tenant with slug '{slug}' already exists")
@@ -164,6 +222,7 @@ async def create_tenant(request: Request, user=Depends(require_platform_admin)):
         max_seats=max_seats,
         valid_days=valid_days,
         grace_days=grace_days,
+        parent_tenant_id=parent_tenant_id,
     )
     created = db.get_tenant(tenant_id)
     license_info = db.get_tenant_license_info(tenant_id)
@@ -181,6 +240,7 @@ async def create_tenant(request: Request, user=Depends(require_platform_admin)):
             "max_seats": max_seats,
             "valid_days": valid_days,
             "grace_days": grace_days,
+            "parent_tenant_id": parent_tenant_id,
         },
     )
     return {
@@ -192,14 +252,15 @@ async def create_tenant(request: Request, user=Depends(require_platform_admin)):
         "tier": tier,
         "max_seats": max_seats,
         "grace_days": grace_days,
+        "parent_tenant_id": parent_tenant_id,
         "enrollment_token": created.get("enrollment_token") if created else None,
         "license": license_info,
     }
 
 
 @router.post("/api/tenants/{tenant_id}/rotate-token")
-async def rotate_tenant_token(tenant_id: int, request: Request, user=Depends(require_platform_admin)):
-    tenant = db.get_tenant(tenant_id)
+async def rotate_tenant_token(tenant_id: int, request: Request, user=Depends(require_platform_or_msp_admin)):
+    tenant = _manageable_child_tenant(tenant_id, user)
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
     new_token = db.rotate_enrollment_token(tenant_id)
@@ -214,9 +275,9 @@ async def download_agent_bundle(
     tenant_id: int,
     request: Request,
     platform: str = "windows",
-    user=Depends(require_platform_admin),
+    user=Depends(require_platform_or_msp_admin),
 ):
-    tenant = db.get_tenant(tenant_id)
+    tenant = _manageable_child_tenant(tenant_id, user)
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
 
@@ -344,7 +405,7 @@ async def download_agent_bundle(
 
 
 @router.put("/api/tenants/{tenant_id}")
-async def update_tenant(tenant_id: int, request: Request, user=Depends(require_platform_admin)):
+async def update_tenant(tenant_id: int, request: Request, user=Depends(require_platform_or_msp_admin)):
     data = await request.json()
     name = data.get("name")
     status = data.get("status")
@@ -355,18 +416,38 @@ async def update_tenant(tenant_id: int, request: Request, user=Depends(require_p
     extend_days = data.get("extend_days")
     valid_until = data.get("valid_until")
 
+    target = _manageable_child_tenant(tenant_id, user)
+    if not target:
+        raise HTTPException(status_code=404, detail="Tenant not found")
     if status and status not in ("active", "suspended"):
         raise HTTPException(status_code=400, detail="Status must be 'active' or 'suspended'")
     if tenant_id == 1 and status == "suspended":
         raise HTTPException(status_code=400, detail="Cannot suspend the default tenant")
     if tier is not None and tier not in VALID_TIERS:
         raise HTTPException(status_code=400, detail=f"Invalid tier. Must be one of: {', '.join(VALID_TIERS)}")
+    if _is_msp_user(user) and tier == "msp":
+        raise HTTPException(status_code=403, detail="MSP admins cannot assign the MSP tier to sub-tenants")
     if max_seats is not None and int(max_seats) < 0:
         raise HTTPException(status_code=400, detail="max_seats must be >= 0")
     if grace_days is not None and int(grace_days) < 0:
         raise HTTPException(status_code=400, detail="grace_days must be >= 0")
     if extend_days is not None and int(extend_days) < 0:
         raise HTTPException(status_code=400, detail="extend_days must be >= 0")
+    if _is_msp_user(user) and max_seats is not None:
+        caller_tenant_id = int(user.get("tenant_id") or 1)
+        caller_tenant = db.get_tenant(caller_tenant_id)
+        licensed_seats = int((caller_tenant or {}).get("max_seats") or 0)
+        if licensed_seats > 0:
+            allocated = db.sum_child_tenant_max_seats(caller_tenant_id, exclude_tenant_id=tenant_id)
+            requested_seats = int(max_seats)
+            if allocated + requested_seats > licensed_seats:
+                raise HTTPException(
+                    status_code=402,
+                    detail=(
+                        f"MSP seat quota exceeded. Requested {requested_seats} seats would raise the "
+                        f"sub-tenant allocation to {allocated + requested_seats}, above the MSP limit of {licensed_seats}."
+                    ),
+                )
 
     updated = db.update_tenant(
         tenant_id,
@@ -397,8 +478,8 @@ async def update_tenant(tenant_id: int, request: Request, user=Depends(require_p
 
 
 @router.delete("/api/tenants/{tenant_id}")
-async def delete_tenant_endpoint(tenant_id: int, request: Request, user=Depends(require_platform_admin)):
-    tenant = db.get_tenant(tenant_id)
+async def delete_tenant_endpoint(tenant_id: int, request: Request, user=Depends(require_platform_or_msp_admin)):
+    tenant = _manageable_child_tenant(tenant_id, user)
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
     try:

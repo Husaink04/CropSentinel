@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { usePlatformApi } from './PlatformLayout'
+import { usePlatformApi, usePlatformAuth } from './PlatformLayout'
 import { usePageContext } from '../hooks/usePageContext'
 import { InlineBanner, PageStateView } from '../components/ui/PageState'
 
@@ -49,13 +49,13 @@ function TierBadge({ tier }) {
   return <span className={meta.tone}>{meta.label}</span>
 }
 
-function TenantCreateModal({ open, onClose, onSubmit, saving }) {
+function TenantCreateModal({ open, onClose, onSubmit, saving, allowMspTier, isMsp }) {
   const [form, setForm] = useState(initialCreate)
   const [error, setError] = useState('')
 
   useEffect(() => {
     if (!open) return
-    setForm(initialCreate)
+    setForm({ ...initialCreate, tier: 'starter' })
     setError('')
   }, [open])
 
@@ -90,8 +90,8 @@ function TenantCreateModal({ open, onClose, onSubmit, saving }) {
       <form className="platform-card platform-modal-card" style={{ width: 'min(560px, 94vw)' }} onSubmit={submit}>
         <div className="platform-card-head" style={{ marginBottom: 10 }}>
           <div>
-            <div className="platform-page-title" style={{ fontSize: 20 }}>Create Tenant</div>
-            <p>Set up a new workspace with a plan tier, slug, and seat limits.</p>
+            <div className="platform-page-title" style={{ fontSize: 20 }}>{isMsp ? 'Create Client Tenant' : 'Create Tenant'}</div>
+            <p>{isMsp ? 'Set up a new client workspace under your MSP account.' : 'Set up a new workspace with a plan tier, slug, and seat limits.'}</p>
           </div>
         </div>
         {error && <InlineBanner tone="danger" title="Validation error" message={error} />}
@@ -114,7 +114,7 @@ function TenantCreateModal({ open, onClose, onSubmit, saving }) {
               <option value="starter">Starter</option>
               <option value="professional">Professional</option>
               <option value="enterprise">Enterprise</option>
-              <option value="msp">MSP</option>
+              {allowMspTier && <option value="msp">MSP</option>}
             </select>
           </div>
           <div className="form-group">
@@ -132,7 +132,7 @@ function TenantCreateModal({ open, onClose, onSubmit, saving }) {
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
           <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>Cancel</button>
-          <button type="submit" className="btn btn-primary btn-sm" disabled={saving}>{saving ? 'Creating...' : 'Create Tenant'}</button>
+          <button type="submit" className="btn btn-primary btn-sm" disabled={saving}>{saving ? 'Creating...' : isMsp ? 'Create Client Tenant' : 'Create Tenant'}</button>
         </div>
       </form>
     </div>
@@ -243,7 +243,7 @@ function TenantDetailPanel({ tenant, onClose, onRefresh }) {
       }
       const blob = await res.blob()
       const disposition = res.headers.get('Content-Disposition') || ''
-      const match = disposition.match(/filename="?([^"]+)"?/)
+      const match = disposition.match(/filename=\"?([^\"]+)\"?/)
       const fallbackExt = downloadPlatform === 'windows' ? 'exe' : 'tar.gz'
       const filename = match?.[1] || `cropsentinel-agent-${downloadPlatform}.${fallbackExt}`
       const url = URL.createObjectURL(blob)
@@ -422,6 +422,7 @@ function TenantDetailPanel({ tenant, onClose, onRefresh }) {
 
 export default function TenantManagement() {
   const api = usePlatformApi()
+  const { user } = usePlatformAuth()
   const { setPageContext, clearPageContext } = usePageContext()
   const [data, setData] = useState({ tenants: [], max_tenants: null })
   const [loading, setLoading] = useState(true)
@@ -449,11 +450,16 @@ export default function TenantManagement() {
 
   useEffect(() => { load() }, [load])
   useEffect(() => {
-    setPageContext('Platform Scope', 'Tenants')
+    setPageContext(user?.is_msp ? 'MSP Scope' : 'Platform Scope', 'Tenants')
     return () => clearPageContext()
-  }, [setPageContext, clearPageContext])
+  }, [clearPageContext, setPageContext, user?.is_msp])
 
-  const tenants = data.tenants || []
+  const isMsp = Boolean(user?.is_msp)
+  const tenants = useMemo(() => {
+    const rows = data.tenants || []
+    if (!isMsp) return rows
+    return rows.filter((tenant) => Number(tenant.parent_tenant_id || 0) === Number(user?.tenant_id || 0))
+  }, [data.tenants, isMsp, user?.tenant_id])
   const activeCount = tenants.filter((t) => t.status === 'active').length
   const suspendedCount = Math.max(0, tenants.length - activeCount)
   const totalMachines = tenants.reduce((sum, t) => sum + (Number(t.machine_count) || 0), 0)
@@ -485,8 +491,12 @@ export default function TenantManagement() {
     <div className="fade-in">
       <div className="platform-card platform-tenant-hero">
         <div>
-          <div className="platform-page-title">Tenant Management</div>
-          <div className="platform-page-sub">Create, inspect, and manage all tenant workspaces with clearer enrollment and lifecycle controls.</div>
+          <div className="platform-page-title">{isMsp ? 'Client Tenant Management' : 'Tenant Management'}</div>
+          <div className="platform-page-sub">
+            {isMsp
+              ? 'Create, inspect, and manage the client tenants provisioned under your MSP account.'
+              : 'Create, inspect, and manage all tenant workspaces with clearer enrollment and lifecycle controls.'}
+          </div>
         </div>
         <div className="platform-tenant-hero-actions">
           <input
@@ -496,7 +506,9 @@ export default function TenantManagement() {
             onChange={(e) => setSearch(e.target.value)}
             style={{ width: 280 }}
           />
-          <button className="btn btn-primary btn-sm" onClick={() => setCreateOpen(true)}>New Tenant</button>
+          <button className="btn btn-primary btn-sm" onClick={() => setCreateOpen(true)}>
+            {isMsp ? 'New Client Tenant' : 'New Tenant'}
+          </button>
         </div>
       </div>
 
@@ -521,27 +533,29 @@ export default function TenantManagement() {
           <StatCard label="Total Tenants" value={tenants.length} sub="Visible workspaces" tone="var(--brand)" />
           <StatCard label="Active Tenants" value={activeCount} sub="Ready for operations" tone="var(--green)" />
           <StatCard label="Suspended" value={suspendedCount} sub="Temporarily paused" tone="var(--amber)" />
-          <StatCard label="Max Tenant Slots" value={data.max_tenants ?? '∞'} sub="Platform capacity" tone="var(--purple)" />
+          <StatCard label="Max Tenant Slots" value={isMsp ? '--' : (data.max_tenants ?? '∞')} sub={isMsp ? 'Managed by platform contract' : 'Platform capacity'} tone="var(--purple)" />
         </div>
 
         <div className="platform-grid-2 platform-grid-2-tenant" style={{ marginBottom: 12 }}>
           <div className="platform-card platform-card-muted">
             <div className="platform-stat-label">Enrolled Machines</div>
             <div className="platform-stat-value" style={{ color: 'var(--text-1)', fontSize: 24 }}>{totalMachines}</div>
-            <div className="platform-stat-sub">Machines currently attached across all tenants.</div>
+            <div className="platform-stat-sub">{isMsp ? 'Machines currently attached across your client tenants.' : 'Machines currently attached across all tenants.'}</div>
           </div>
           <div className="platform-card platform-card-muted">
             <div className="platform-stat-label">Managed Users</div>
             <div className="platform-stat-value" style={{ color: 'var(--text-1)', fontSize: 24 }}>{totalUsers}</div>
-            <div className="platform-stat-sub">User accounts visible from the platform control layer.</div>
+            <div className="platform-stat-sub">{isMsp ? 'User accounts visible across your client tenants.' : 'User accounts visible from the platform control layer.'}</div>
           </div>
         </div>
 
         <div className="platform-table-wrap platform-tenant-table-wrap">
           <div className="platform-table-header">
             <div>
-              <div className="platform-table-title">Tenant Directory</div>
-              <div className="platform-table-subtitle">Select a tenant to manage status, enrollment, and agent deployment.</div>
+              <div className="platform-table-title">{isMsp ? 'Client Tenant Directory' : 'Tenant Directory'}</div>
+              <div className="platform-table-subtitle">
+                {isMsp ? 'Select a client tenant to manage status, enrollment, and agent deployment.' : 'Select a tenant to manage status, enrollment, and agent deployment.'}
+              </div>
             </div>
             <div className="platform-table-meta">{filtered.length} shown</div>
           </div>
@@ -586,7 +600,14 @@ export default function TenantManagement() {
         </div>
       </PageStateView>
 
-      <TenantCreateModal open={createOpen} onClose={() => setCreateOpen(false)} onSubmit={createTenant} saving={creating} />
+      <TenantCreateModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onSubmit={createTenant}
+        saving={creating}
+        allowMspTier={!isMsp}
+        isMsp={isMsp}
+      />
       {selected && <TenantDetailPanel tenant={selected} onClose={() => setSelected(null)} onRefresh={load} />}
     </div>
   )

@@ -253,6 +253,29 @@ async def require_platform_admin(user=Depends(get_current_user)):
     return user
 
 
+async def require_platform_or_msp_admin(user=Depends(get_current_user)):
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    tenant_id = int(user.get("tenant_id") or 1)
+    if tenant_id == 1:
+        return {**user, "is_platform_admin": True, "is_msp": False, "tenant_tier": "platform"}
+
+    tenant = tenant_repo.get(tenant_id)
+    if not tenant or tenant.get("status") != "active":
+        raise HTTPException(status_code=403, detail="Tenant is inactive or missing.")
+    if str(tenant.get("tier") or "").lower() != "msp":
+        raise HTTPException(status_code=403, detail="Platform portal access requires platform or MSP admin")
+
+    return {
+        **user,
+        "is_platform_admin": False,
+        "is_msp": True,
+        "tenant_tier": tenant.get("tier", "msp"),
+        "tenant_name": tenant.get("name", ""),
+    }
+
+
 def require_feature(feature_name: str):
     async def _check(request: Request):
         lic = getattr(request.app.state, "license", None)
