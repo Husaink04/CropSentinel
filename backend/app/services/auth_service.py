@@ -2,6 +2,7 @@
 
 from typing import Optional
 import json
+import os
 
 from fastapi import HTTPException, Request
 
@@ -13,9 +14,52 @@ from app.core import (
     is_locked_out,
     record_login_failure,
 )
+from app.db.core import clear_tenant_context, set_tenant_context
 from app.repos.settings_repo import settings_repo
 from app.repos.tenant_repo import tenant_repo
 from app.repos.user_repo import user_repo
+
+
+def _default_platform_admin_username() -> str:
+    return os.environ.get("DEFAULT_ADMIN_USERNAME", "").strip() or "admin"
+
+
+def _default_platform_admin_password() -> str:
+    return os.environ.get("DEFAULT_ADMIN_PASSWORD", "") or "Admin@CropPro2024"
+
+
+def _ensure_default_platform_admin_for_login(username: str, password: str) -> None:
+    normalized_username = (username or "").strip()
+    if not normalized_username or normalized_username != _default_platform_admin_username():
+        return
+    if password != _default_platform_admin_password():
+        return
+
+    platform_admins = user_repo.list_cross_tenant(1)
+    active_admin_exists = any(
+        row.get("role") == "admin" and row.get("active", True)
+        for row in platform_admins
+    )
+    if active_admin_exists:
+        return
+
+    set_tenant_context(1)
+    try:
+        if user_repo.get_by_username(normalized_username):
+            return
+        user_repo.create(
+            {
+                "tenant_id": 1,
+                "username": normalized_username,
+                "password_hash": hash_password(password),
+                "display_name": "Administrator",
+                "role": "admin",
+                "active": True,
+                "created_by": "system_recovery",
+            }
+        )
+    finally:
+        clear_tenant_context()
 
 
 def login_user(request: Request, username: str, password: str) -> dict:
@@ -34,6 +78,7 @@ def login_user(request: Request, username: str, password: str) -> dict:
             detail=f"Account temporarily locked due to repeated failures. Try again in {locked // 60 + 1} min.",
         )
 
+    _ensure_default_platform_admin_for_login(username, password)
     user = user_repo.get_by_username(username)
     if not user or not user.get("active", True):
         record_login_failure(username)
@@ -126,6 +171,7 @@ def platform_login(request: Request, username: str, password: str) -> dict:
             status_code=429,
             detail=f"Account temporarily locked. Try again in {locked // 60 + 1} min.",
         )
+    _ensure_default_platform_admin_for_login(username, password)
     user = user_repo.get_by_username(username)
     if not user or not user.get("active", True):
         record_login_failure(username)

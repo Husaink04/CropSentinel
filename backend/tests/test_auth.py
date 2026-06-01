@@ -89,6 +89,24 @@ async def test_login_blocked_when_tenant_suspended(api, make_tenant, make_user, 
     assert "suspended" in resp.json()["detail"].lower()
 
 
+async def test_default_platform_admin_is_recreated_after_deletion(api, make_user, db):
+    user = make_user(tenant_id=1, username="admin", password="Admin@CropPro2024", role="admin")
+    assert db.get_user_by_username("admin") is not None
+    deleted = db.delete_user(user["id"])
+    assert deleted is True
+    assert db.get_user_by_username("admin") is None
+
+    resp = await api.post(
+        "/api/platform/login",
+        data={"username": "admin", "password": "Admin@CropPro2024"},
+    )
+    assert resp.status_code == 200, resp.text
+    recreated = db.get_user_by_username("admin")
+    assert recreated is not None
+    assert recreated["tenant_id"] == 1
+    assert recreated["role"] == "admin"
+
+
 # ---------------------------------------------------------------------------
 # JWT validation on protected routes
 # ---------------------------------------------------------------------------
