@@ -1,6 +1,6 @@
-﻿<p align="center">
+<p align="center">
   <img src="https://img.shields.io/badge/version-7.x-blue?style=flat-square" alt="Version" />
-  <img src="https://img.shields.io/badge/python-3.10+-green?style=flat-square&logo=python&logoColor=white" alt="Python" />
+  <img src="https://img.shields.io/badge/.net-8.0-blueviolet?style=flat-square&logo=.net&logoColor=white" alt=".NET" />
   <img src="https://img.shields.io/badge/react-18-61DAFB?style=flat-square&logo=react&logoColor=white" alt="React" />
   <img src="https://img.shields.io/badge/postgresql-16-336791?style=flat-square&logo=postgresql&logoColor=white" alt="PostgreSQL" />
   <img src="https://img.shields.io/badge/license-proprietary-red?style=flat-square" alt="License" />
@@ -50,9 +50,9 @@ The product is now named `CropSentinel`. Existing technical identifiers such as 
 - next-gen edge tracing, internal event bus foundation, hybrid-ready object storage abstraction, and optional ClickHouse analytics pipeline
 
 ### Agent
-- Python endpoint agent
+- C# (.NET 8 Native AOT) endpoint agent
 - WebSocket-first transport with HTTP fallback
-- file, app, browser, input, network, USB, print, screenshot, and WebRTC modules
+- file (with active blocking and delete backup caching), app, browser, input (with privacy hashing), network, screenshot, and WebRTC modules
 
 ## Enterprise DLP Status
 
@@ -70,8 +70,8 @@ Implemented:
 - compatibility with existing `/api/dlp/events` and `/api/dlp/stats`
 
 Current rollout model:
-- detection-first
-- policy actions are computed and stored
+- active enforcement plus detection
+- policy actions are computed, stored, and enforced natively on the endpoint
 - unsupported endpoint enforcement degrades visibly instead of pretending to block
 
 Key backend endpoints:
@@ -138,13 +138,13 @@ FastAPI API + WebSocket Hub
         |
 PostgreSQL + Redis + Event Bus/Object Storage Foundations
         |
-Endpoint Agent (Python)
+Endpoint Agent (C# Native AOT)
 ```
 
 Core layers:
 - `frontend/` contains both customer and platform UIs
 - `backend/` contains FastAPI routers, services, repos, DB mixins, tests, and monitoring
-- `agent/` contains the endpoint collector, transport, DLP engine, and runtime modules
+- `agent/` contains the net8.0 C# Native AOT Windows endpoint agent (`agent/native/`)
 
 ## Tech Stack
 
@@ -171,11 +171,11 @@ Core layers:
 - extracted runtime entrypoints for `agent-control`, `monitoring`, and `realtime`
 
 ### Agent
-- Python
-- psutil
-- watchdog
-- aiortc
-- cryptography
+- C# (.NET 8.0 net8.0-windows Native AOT)
+- SIPSorcery (Real-time WebRTC media)
+- Microsoft.Data.Sqlite (Encrypted offline queueing)
+- System.Drawing.Common (Multi-monitor GDI+ virtual screen capture)
+- Native Win32 / SCM / impersonation P/Invokes
 
 ## Quick Start
 
@@ -224,30 +224,15 @@ npm run dev
 
 Frontend runs on `http://localhost:5173`.
 
-### 4a. Optional next-gen local stack
-
-Docker Compose now includes:
-- `gateway` for stable edge routing and websocket proxying
-- `agent-control`, `monitoring`, and `realtime` split services for hot-path scaling
-- `redpanda` for Kafka-compatible event streaming
-- `minio` for S3-compatible object storage
-- `clickhouse` for analytical storage
-- `prometheus`, `grafana`, `loki`, and `promtail` for ops telemetry and log collection
-
-When using the full compose stack, the intended public entrypoint is `http://localhost/` through the gateway.
-ClickHouse writes can be enabled with `ANALYTICS_BACKEND=clickhouse`; dashboard reads stay on PostgreSQL until `CLICKHOUSE_ANALYTICS_READS=1` is turned on.
-Backend metrics are exposed on `/_internal/metrics` using the internal service token or a dedicated `PROMETHEUS_METRICS_TOKEN`.
-When `EVENT_BUS_CONSUME_EXTERNAL=1`, monitoring workers can consume internal events from Redis/Kafka instead of only same-process delivery, which is required for the split-service deployment shape.
-
-### 5. Run the agent in development
+### 5. Compile and run the native agent in development
 
 ```powershell
-Set-Location agent
-py -m pip install -r requirements.txt
-py agent.py
+# Publish the native worker and supervisor service watchdogs
+cd installer
+powershell -ExecutionPolicy Bypass -File .\build-native-aot.ps1
 ```
 
-The agent expects server configuration through env or generated config files. In tenant-aware installs it must use the correct enrollment token.
+The native agent expects server configuration through `config.env` or generated appsettings.json. In tenant-aware installs it must use the correct enrollment token.
 
 ## Common Commands
 
@@ -268,10 +253,11 @@ pytest backend
 py tools/tenant_safety_smoke.py --database-url "postgresql://postgres:YOUR_PASSWORD@localhost:5432/cropsentinel"
 ```
 
-### Agent
+### Agent (Native)
 
 ```powershell
-py -m py_compile agent/agent.py
+# Compile C# worker project directly
+dotnet build agent/native/CropSentinel.AgentNative/CropSentinel.AgentNative.csproj
 ```
 
 ## Project Structure
@@ -279,6 +265,7 @@ py -m py_compile agent/agent.py
 ```text
 CropSentinel/
 â”œâ”€ agent/
+â”‚  â””â”€ native/
 â”œâ”€ backend/
 â”‚  â”œâ”€ app/
 â”‚  â”‚  â”œâ”€ db/
@@ -350,10 +337,9 @@ Useful docs:
 
 - Default credentials should never be shown in the UI. Seed values belong in environment configuration only.
 - The backend can generate a random JWT secret if `SECRET_KEY` is unset, but that is development-only because tokens will not survive restart.
-- Enterprise DLP enforcement actions are modeled now, but full OS-level blocking/quarantine execution is still a staged rollout item.
+- Enterprise DLP enforcement actions are modeled and fully enforced natively by the user-mode active blocking system inside the C# Native agent.
 
 <p align="center">
   <strong>CropSentinel</strong><br />
   <sub>Monitor. Detect. Protect.</sub>
 </p>
-

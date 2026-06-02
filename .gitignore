@@ -75,3 +75,8 @@ agent/agent.py.tmp.*
 backend/static/assets/
 
 backend/dist/installers/*.msi
+
+# .NET / C# Build and Output Folders
+**/bin/
+**/obj/
+agent/native/publish/

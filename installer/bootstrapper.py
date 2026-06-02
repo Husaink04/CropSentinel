@@ -4,11 +4,11 @@ This is a single Windows EXE installer built with PyInstaller. It:
 - shows a consent screen
 - reads tenant config from a sidecar config.env when present
 - requests elevation when the user starts installation
-- copies the frozen agent/watchdog payload into Program Files
+- copies the native worker + native session-supervisor payload into Program Files
 - writes C:\ProgramData\CropSentinel\config.env
-- installs Windows services for the agent and watchdog under LocalSystem
+- installs the native session-supervisor Windows service under LocalSystem
 - applies locked-down ACLs so only SYSTEM or administrators can modify payload
-- configures service recovery and starts both services immediately
+- configures service recovery and starts the service immediately
 """
 
 from __future__ import annotations
@@ -31,16 +31,13 @@ APP_NAME = "CropSentinel Installer"
 VERSION = "1.3.0"
 PROGRAM_DATA = Path(os.environ.get("PROGRAMDATA", r"C:\ProgramData")) / "CropSentinel"
 INSTALL_DIR = Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "CropSentinel Agent"
-PAYLOAD_CACHE_DIR = PROGRAM_DATA / "payload-cache"
 CONFIG_PATH = PROGRAM_DATA / "config.env"
 PAYLOAD_MANIFEST = "payload-manifest.json"
 PAYLOAD_MANIFEST_PATH = PROGRAM_DATA / PAYLOAD_MANIFEST
+PAYLOAD_CACHE_DIR = PROGRAM_DATA / "payload-cache"
 AGENT_SERVICE = "CropSentinelAgent"
-WATCHDOG_SERVICE = "CropSentinelWatchdog"
-AGENT_EXE_NAME = "cropsentinel-agent.exe"
-WATCHDOG_EXE_NAME = "cropsentinel-watchdog.exe"
+AGENT_EXE_NAME = "cropsentinel-agent-native.exe"
 AGENT_SERVICE_EXE_NAME = "cropsentinel-agent-service.exe"
-WATCHDOG_SERVICE_EXE_NAME = "cropsentinel-watchdog-service.exe"
 APP_ICON_NAME = "app.ico"
 _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
@@ -286,12 +283,9 @@ def write_payload_manifest(manifest: dict[str, object]) -> None:
 
 
 def stage_payload_cache(manifest: dict[str, object]) -> None:
-    _unlock_program_data_targets(PAYLOAD_CACHE_DIR, PAYLOAD_MANIFEST_PATH)
+    _unlock_program_data_targets(PAYLOAD_MANIFEST_PATH, PAYLOAD_CACHE_DIR)
     if PAYLOAD_CACHE_DIR.exists():
-        for existing in PAYLOAD_CACHE_DIR.rglob("*"):
-            _run(["attrib.exe", "-R", str(existing)], check=False)
         shutil.rmtree(PAYLOAD_CACHE_DIR, ignore_errors=True)
-    PAYLOAD_CACHE_DIR.mkdir(parents=True, exist_ok=True)
     copy_payload_files(PAYLOAD_CACHE_DIR)
     write_payload_manifest(manifest)
 
@@ -332,15 +326,13 @@ def _delete_legacy_task(task_name: str) -> None:
 
 def stop_existing_install() -> None:
     """Stop old services, legacy tasks, and processes before overwriting files."""
-    for service_name in (WATCHDOG_SERVICE, AGENT_SERVICE):
+    for service_name in (AGENT_SERVICE,):
         _stop_service(service_name)
-    for task_name in (WATCHDOG_SERVICE, AGENT_SERVICE):
+    for task_name in (AGENT_SERVICE,):
         _delete_legacy_task(task_name)
     for proc_name in (
         AGENT_EXE_NAME,
-        WATCHDOG_EXE_NAME,
         AGENT_SERVICE_EXE_NAME,
-        WATCHDOG_SERVICE_EXE_NAME,
     ):
         _run(["taskkill.exe", "/F", "/IM", proc_name, "/T"], check=False)
 
@@ -437,33 +429,19 @@ def apply_locked_acl(path: Path) -> None:
 
 
 def harden_windows_paths() -> None:
-    for path in (INSTALL_DIR, PAYLOAD_CACHE_DIR, PROGRAM_DATA):
+    for path in (INSTALL_DIR, PROGRAM_DATA):
         apply_locked_acl(path)
 
 
 def ensure_services() -> None:
     agent_service_exe = INSTALL_DIR / AGENT_SERVICE_EXE_NAME
-    watchdog_service_exe = PAYLOAD_CACHE_DIR / WATCHDOG_SERVICE_EXE_NAME
 
     _upsert_service(
         AGENT_SERVICE,
         agent_service_exe,
         "CropSentinel Agent",
-        "CropSentinel monitoring agent service.",
+        "CropSentinel native monitoring agent service.",
     )
-    _upsert_service(
-        WATCHDOG_SERVICE,
-        watchdog_service_exe,
-        "CropSentinel Watchdog",
-        "CropSentinel self-heal watchdog service.",
-    )
-
-    watchdog_start = _run_sc(["start", WATCHDOG_SERVICE])
-    watchdog_text = ((watchdog_start.stdout or "") + (watchdog_start.stderr or "")).lower()
-    if watchdog_start.returncode != 0 and "service has already been started" not in watchdog_text:
-        raise RuntimeError(f"Failed to start watchdog service: {(watchdog_start.stdout or watchdog_start.stderr).strip()}")
-    if not _wait_for_service_state(WATCHDOG_SERVICE, "RUNNING", 20):
-        raise RuntimeError("Watchdog service did not reach RUNNING state.")
 
     agent_start = _run_sc(["start", AGENT_SERVICE])
     agent_text = ((agent_start.stdout or "") + (agent_start.stderr or "")).lower()
@@ -486,9 +464,9 @@ def install_from_payload(payload: dict[str, str]) -> None:
 
 def uninstall_agent() -> None:
     stop_existing_install()
-    for service_name in (WATCHDOG_SERVICE, AGENT_SERVICE):
+    for service_name in (AGENT_SERVICE,):
         _delete_service(service_name)
-    for task_name in (WATCHDOG_SERVICE, AGENT_SERVICE):
+    for task_name in (AGENT_SERVICE,):
         _delete_legacy_task(task_name)
     for path in (INSTALL_DIR, PAYLOAD_CACHE_DIR):
         if path.exists():
@@ -567,7 +545,6 @@ class InstallerUI:
             "CropSentinel monitors employee activity on this device for security and productivity purposes.\n\n"
             "What will happen after install:\n"
             "- the agent will run in the background as a Windows service\n"
-            "- the watchdog will run as a LocalSystem service and restore the agent if tampered with\n"
             "- the agent will send activity and security events to your server\n"
             "- an administrator can manage or uninstall it using Windows rights\n\n"
             "You should only continue if you are authorized to install monitoring software on this computer."

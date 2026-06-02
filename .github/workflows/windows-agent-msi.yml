@@ -29,15 +29,30 @@ jobs:
         shell: pwsh
         run: |
           python -m pip install --upgrade pip
-          if (Test-Path "agent\requirements.txt") {
-            pip install -r agent\requirements.txt
-          }
           pip install pyinstaller pillow
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "8.0.x"
+
+      - name: Publish native agent preview
+        shell: pwsh
+        run: .\installer\build-native-aot.ps1
+
+      - name: Validate native agent preview output
+        shell: pwsh
+        run: |
+          $nativeExe = Join-Path $PWD "agent\native\publish\win-x64\cropsentinel-agent-native.exe"
+          $serviceExe = Join-Path $PWD "agent\native\publish\win-x64\cropsentinel-agent-service.exe"
+          if (-not (Test-Path $nativeExe)) {
+            throw "Native agent preview executable missing: $nativeExe"
+          }
+          if (-not (Test-Path $serviceExe)) {
+            throw "Native agent service executable missing: $serviceExe"
+          }
+          Get-Item $nativeExe | Format-List FullName,Length,LastWriteTime
+          Get-Item $serviceExe | Format-List FullName,Length,LastWriteTime
 
       - name: Install WiX Toolset v7 CLI
         shell: pwsh
@@ -113,6 +128,18 @@ jobs:
             backend/dist/installers/cropsentinel-agent-*-setup.exe
             backend/dist/installers/cropsentinel-agent-*-windows.zip
             backend/dist/installers/cropsentinel-agent-*.msi
+
+      - name: Upload native agent preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-agent-native-preview
+          path: |
+            agent/native/publish/win-x64/cropsentinel-agent-native.exe
+            agent/native/publish/win-x64/cropsentinel-agent-service.exe
+            agent/native/publish/win-x64/appsettings.json
+            agent/native/publish/win-x64/e_sqlite3.dll
+            agent/native/publish/win-x64/vpxmd.dll
+            agent/native/publish/win-x64/payload-manifest.json
 
   deploy-to-kali:
     needs: build-windows-agent

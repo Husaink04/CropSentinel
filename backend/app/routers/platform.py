@@ -24,6 +24,7 @@ async def platform_stats(request: Request, user=Depends(require_platform_or_msp_
         active_tenants = [t for t in sub_tenants if t.get("status") == "active"]
         total_machines = sum(int(t.get("machine_count", 0) or 0) for t in sub_tenants)
         total_users = sum(int(t.get("user_count", 0) or 0) for t in sub_tenants)
+        allocated_seats = sum(int(t.get("max_seats", 0) or 0) for t in sub_tenants)
         max_seats = int((root_tenant or {}).get("max_seats") or 0) or None
         customer_name = (root_tenant or {}).get("customer_name") or (root_tenant or {}).get("name")
         return {
@@ -31,7 +32,7 @@ async def platform_stats(request: Request, user=Depends(require_platform_or_msp_
             "tenants": len(sub_tenants),
             "active_tenants": len(active_tenants),
             "total_machines": total_machines,
-            "active_seats": total_machines,
+            "active_seats": allocated_seats,
             "total_users": total_users,
             "max_tenants": None,
             "max_seats": max_seats,

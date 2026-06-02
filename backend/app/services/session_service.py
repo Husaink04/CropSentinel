@@ -74,7 +74,7 @@ def session_capabilities(user: dict, machine_id: str, *, remote_access_licensed:
             "live_webrtc": can_live,
             "live_jpeg_fallback": can_live,
             "remote_control": can_remote,
-            "remote_audio": can_remote,
+            "remote_audio": False,
             "file_transfer": can_remote,
         },
         "permissions": {
@@ -83,6 +83,15 @@ def session_capabilities(user: dict, machine_id: str, *, remote_access_licensed:
             "can_start_remote_session": can_remote,
             "can_send_remote_command": can_remote,
         },
-        "remote_commands": sorted(ALLOWED_REMOTE_COMMANDS.keys()) if can_remote else [],
-        "session_kinds": [kind for kind, perm in SESSION_KIND_PERMISSIONS.items() if has_permission(user, perm)],
+        "remote_commands": [
+            "lock_screen",
+            "show_message",
+            "open_url",
+            "mute_audio",
+            "unmute_audio",
+            "sleep",
+            "logout_user",
+            "ctrl_alt_del",
+        ] if can_remote else [],
+        "session_kinds": [kind for kind, enabled in (("live", can_live), ("remote", can_remote)) if enabled],
     }

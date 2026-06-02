@@ -1,6 +1,7 @@
 """Session capability endpoints for live view and remote access."""
 
 from fastapi import APIRouter, Depends, Request
+from fastapi import HTTPException
 from pydantic import BaseModel
 
 from app.core import audit_log, check_machine_access, require_feature, require_permission
@@ -34,8 +35,6 @@ async def start_session_handshake(
     user=Depends(require_permission("machines.view")),
 ):
     kind = normalize_session_kind(req.session_kind)
-    if kind == "remote":
-        await require_feature("remote_access")(request)
     require_session_access(user, machine_id, kind)
     audit_log(request, user, "session_start_requested", "machine", machine_id, {"session_kind": kind})
     return {

@@ -5,13 +5,9 @@
 #     .\build.ps1
 #
 # What it does:
-#     1) PyInstaller freezes agent\agent.py and agent\watchdog.py into a
-#        standalone folder of .exe + .dll + .pyd + data files, including
-#        Windows service hosts for the agent and watchdog.
-#     2) PyInstaller freezes installer\bootstrapper.py into a single EXE
-#        installer that bundles the agent/watchdog binaries.
-#     3) The resulting EXE and a tenant-friendly ZIP bundle are copied into
-#        backend\dist\installers\ for portal delivery.
+#     1) Publishes the native Windows worker and native session-supervisor service.
+#     2) Builds installer\bootstrapper.py into a single EXE that bundles the native payload.
+#     3) Copies the resulting EXE and ZIP bundle into backend\dist\installers\ for portal delivery.
 
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
@@ -122,10 +118,10 @@ function Find-PyInstaller {
 function Clean-PreviousArtifacts {
     Write-Host '[1/4] Cleaning previous build artifacts...' -ForegroundColor Yellow
     $procNames = @(
+        'cropsentinel-agent-native',
+        'cropsentinel-agent-service',
         'cropsentinel-agent',
-        'cropsentinel-watchdog',
-        'agent',
-        'watchdog'
+        'agent'
     )
     foreach ($name in $procNames) {
         Get-Process -Name $name -ErrorAction SilentlyContinue | ForEach-Object {
@@ -188,35 +184,25 @@ Remove-Item -Force -ErrorAction SilentlyContinue `
     (Join-Path $PortalInstallersDir 'cropsentinel-agent-*.exe'), `
     (Join-Path $PortalInstallersDir 'cropsentinel-agent-*.zip')
 
-Write-Host '[2/4] Running PyInstaller (this takes a few minutes)...' -ForegroundColor Yellow
-& $pyinstallerCmd.Exe @($pyinstallerCmd.Prefix + @('--noconfirm', 'agent.spec'))
+Write-Host '[2/4] Publishing native agent payload...' -ForegroundColor Yellow
+& powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'build-native-aot.ps1')
 if ($LASTEXITCODE -ne 0) {
-    Write-Error "PyInstaller failed with exit code $LASTEXITCODE"
+    Write-Error "Native publish failed with exit code $LASTEXITCODE"
     exit 1
 }
 
-$agentExe = Join-Path $PSScriptRoot 'dist\cropsentinel-agent\cropsentinel-agent.exe'
-$watchdogExe = Join-Path $PSScriptRoot 'dist\cropsentinel-agent\cropsentinel-watchdog.exe'
-$agentServiceExe = Join-Path $PSScriptRoot 'dist\cropsentinel-agent\cropsentinel-agent-service.exe'
-$watchdogServiceExe = Join-Path $PSScriptRoot 'dist\cropsentinel-agent\cropsentinel-watchdog-service.exe'
+$agentBundleDir = Join-Path $RepoRoot 'agent\native\publish\win-x64'
+$agentExe = Join-Path $agentBundleDir 'cropsentinel-agent-native.exe'
+$agentServiceExe = Join-Path $agentBundleDir 'cropsentinel-agent-service.exe'
 if (-not (Test-Path $agentExe)) {
-    Write-Error 'PyInstaller finished but dist\cropsentinel-agent\cropsentinel-agent.exe is missing.'
-    exit 1
-}
-if (-not (Test-Path $watchdogExe)) {
-    Write-Error 'PyInstaller finished but dist\cropsentinel-agent\cropsentinel-watchdog.exe is missing.'
+    Write-Error "Native publish finished but $agentExe is missing."
     exit 1
 }
 if (-not (Test-Path $agentServiceExe)) {
-    Write-Error 'PyInstaller finished but dist\cropsentinel-agent\cropsentinel-agent-service.exe is missing.'
-    exit 1
-}
-if (-not (Test-Path $watchdogServiceExe)) {
-    Write-Error 'PyInstaller finished but dist\cropsentinel-agent\cropsentinel-watchdog-service.exe is missing.'
+    Write-Error "Native publish finished but $agentServiceExe is missing."
     exit 1
 }
 
-$agentBundleDir = Join-Path $PSScriptRoot 'dist\cropsentinel-agent'
 $payloadManifestPath = Join-Path $agentBundleDir $PayloadManifestName
 Write-Host 'Generating payload integrity manifest...' -ForegroundColor DarkGray
 New-PayloadManifest -PayloadRoot $agentBundleDir -ManifestPath $payloadManifestPath

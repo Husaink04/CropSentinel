@@ -101,9 +101,10 @@ flowchart LR
 - Main runtime:
   - `agent/agent.py`
 - Supporting modules:
-  - `offline_queue.py`, `webrtc_agent.py`, `file_tracker.py`, `network_tracker.py`, `input_tracker.py`
+  - `offline_queue.py`, `file_tracker.py`, `network_tracker.py`, `input_tracker.py`
   - `dlp_engine.py`, `dlp_scoring.py`, `dlp_fingerprint.py`, `dlp_destination.py`
-  - `file_transfer.py`, `usb_tracker.py`, `print_tracker.py`, `watchdog.py`
+  - `usb_tracker.py`, `print_tracker.py`
+  - Windows WebRTC remote-control, file transfer, and watchdog/supervisor responsibilities now live under `agent/native/`
 
 ---
 
@@ -662,4 +663,3 @@ For enterprise delivery, keep these docs as a bundle:
   - Monitoring/security control changed
 - Suggested cadence:
   - Update this document in same PR as architectural change
-
