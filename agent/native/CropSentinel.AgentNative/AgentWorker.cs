@@ -1,4 +1,7 @@
 using System.Collections.Concurrent;
+using System.Net;
+using System.Net.NetworkInformation;
+using System.Net.Sockets;
 using System.Net.WebSockets;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -74,6 +77,20 @@ public sealed partial class AgentWorker : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         ValidateOptions(_options);
+
+        if (string.IsNullOrWhiteSpace(_options.IpAddress))
+        {
+            _options.IpAddress = GetLocalIpAddress();
+        }
+        if (string.IsNullOrWhiteSpace(_options.MacAddress))
+        {
+            _options.MacAddress = GetMacAddress();
+        }
+        if (string.IsNullOrWhiteSpace(_options.Hostname))
+        {
+            _options.Hostname = GetHostname();
+        }
+        _options.Username = GetActiveUsername(_options.Username);
 
         var machineId = _machineIdentityProvider.GetMachineId();
         _logger.LogInformation("Starting native agent bootstrap for machine {MachineId}", machineId);
@@ -343,6 +360,36 @@ public sealed partial class AgentWorker : BackgroundService
                         catch
                         {
                             _offlineEventQueue.Enqueue("phishing_alert", phishingRequest);
+                        }
+
+                        if (string.Equals(phishingRequest.ActionTaken, "warn_user", StringComparison.OrdinalIgnoreCase)
+                            || string.Equals(phishingRequest.ActionTaken, "block", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var severity = phishingRequest.Severity;
+                            var domain = phishingRequest.Domain;
+                            var reasons = string.Join(", ", phishingRequest.ReasonCodes.Take(3));
+                            if (string.IsNullOrWhiteSpace(reasons))
+                            {
+                                reasons = "suspicious activity";
+                            }
+                            var warningText = $"CropSentinel detected a {severity.ToUpper()} phishing risk.\n\n" +
+                                              $"Domain: {domain}\n" +
+                                              $"Reason: {reasons}\n\n" +
+                                              "Do not enter credentials or download files.\n" +
+                                              "Close the page and contact your administrator if this was unexpected.";
+
+                            _ = Task.Run(() =>
+                            {
+                                try
+                                {
+                                    MessageBoxW(
+                                        IntPtr.Zero,
+                                        warningText,
+                                        "CropSentinel Phishing Warning",
+                                        0x00200030); // MB_OK | MB_ICONWARNING | MB_SERVICE_NOTIFICATION
+                                }
+                                catch {}
+                            });
                         }
                     }
 
@@ -691,7 +738,7 @@ public sealed partial class AgentWorker : BackgroundService
                                                     IntPtr.Zero,
                                                     $"{dlpResult.RiskLevel.ToUpper()} risk data transfer blocked: policy restrictions prohibit copying/moving sensitive files to {request.DestinationLabel}.",
                                                     "CropSentinel Data Protection",
-                                                    0x00000030); // MB_OK | MB_ICONWARNING
+                                                    0x00200030); // MB_OK | MB_ICONWARNING | MB_SERVICE_NOTIFICATION
                                             }
                                             catch {}
                                         });
@@ -916,6 +963,106 @@ public sealed partial class AgentWorker : BackgroundService
         if (string.IsNullOrWhiteSpace(options.AgentApiKey))
         {
             throw new InvalidOperationException("CropSentinelAgent:AgentApiKey must be set.");
+        }
+    }
+
+    private static string GetLocalIpAddress()
+    {
+        try
+        {
+            using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, 0);
+            socket.Connect("8.8.8.8", 65530);
+            if (socket.LocalEndPoint is IPEndPoint endPoint)
+            {
+                return endPoint.Address.ToString();
+            }
+        }
+        catch
+        {
+            try
+            {
+                var host = Dns.GetHostEntry(Dns.GetHostName());
+                foreach (var ip in host.AddressList)
+                {
+                    if (ip.AddressFamily == AddressFamily.InterNetwork)
+                    {
+                        return ip.ToString();
+                    }
+                }
+            }
+            catch {}
+        }
+        return "127.0.0.1";
+    }
+
+    private static string GetMacAddress()
+    {
+        try
+        {
+            foreach (var nic in NetworkInterface.GetAllNetworkInterfaces())
+            {
+                if (nic.OperationalStatus == OperationalStatus.Up && nic.NetworkInterfaceType != NetworkInterfaceType.Loopback)
+                {
+                    var addr = nic.GetPhysicalAddress().ToString();
+                    if (!string.IsNullOrWhiteSpace(addr))
+                    {
+                        return string.Join(":", Enumerable.Range(0, addr.Length / 2).Select(i => addr.Substring(i * 2, 2).ToLowerInvariant()));
+                    }
+                }
+            }
+        }
+        catch {}
+        return "00:00:00:00:00:00";
+    }
+
+    private static string GetActiveUsername(string configured)
+    {
+        if (!string.IsNullOrWhiteSpace(configured))
+        {
+            return configured.Trim();
+        }
+
+        try
+        {
+            var identity = System.Security.Principal.WindowsIdentity.GetCurrent().Name;
+            if (!string.IsNullOrWhiteSpace(identity))
+            {
+                var idx = identity.IndexOf('\\');
+                if (idx >= 0)
+                {
+                    identity = identity[(idx + 1)..];
+                }
+                if (!string.Equals(identity, "SYSTEM", StringComparison.OrdinalIgnoreCase))
+                {
+                    return identity;
+                }
+            }
+        }
+        catch {}
+
+        try
+        {
+            var user = Environment.UserName;
+            if (!string.IsNullOrWhiteSpace(user) && !string.Equals(user, "SYSTEM", StringComparison.OrdinalIgnoreCase))
+            {
+                return user;
+            }
+        }
+        catch {}
+
+        return "Unknown";
+    }
+
+    private static string GetHostname()
+    {
+        try
+        {
+            var name = Environment.MachineName;
+            return string.IsNullOrWhiteSpace(name) ? Dns.GetHostName() : name;
+        }
+        catch
+        {
+            return "Unknown-Host";
         }
     }
 }
