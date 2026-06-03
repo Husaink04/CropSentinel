@@ -7,6 +7,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Hosting.WindowsServices;
 
 var builder = Host.CreateApplicationBuilder(args);
+LoadConfigEnv(builder.Configuration);
 var agentOptions = AgentOptions.FromConfiguration(builder.Configuration);
 
 if (WindowsServiceHelpers.IsWindowsService())
@@ -59,3 +60,89 @@ builder.Logging.AddSimpleConsole(options =>
 });
 
 await builder.Build().RunAsync();
+
+static void LoadConfigEnv(ConfigurationManager configuration)
+{
+    var programData = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
+    var configPath = Path.Combine(programData, "CropSentinel", "config.env");
+
+    if (!File.Exists(configPath))
+    {
+        configPath = Path.Combine(AppContext.BaseDirectory, "config.env");
+    }
+
+    if (!File.Exists(configPath))
+    {
+        return;
+    }
+
+    var settings = new Dictionary<string, string>();
+    foreach (var line in File.ReadLines(configPath))
+    {
+        var trimmed = line.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed) || trimmed.StartsWith("#"))
+        {
+            continue;
+        }
+
+        var idx = trimmed.IndexOf('=');
+        if (idx <= 0)
+        {
+            continue;
+        }
+
+        var key = trimmed[..idx].Trim();
+        var val = trimmed[(idx + 1)..].Trim();
+
+        // Strip quotes if present
+        if (val.Length >= 2 && val.StartsWith("\"") && val.EndsWith("\""))
+        {
+            val = val[1..^1].Trim();
+        }
+        else if (val.Length >= 2 && val.StartsWith("'") && val.EndsWith("'"))
+        {
+            val = val[1..^1].Trim();
+        }
+
+        switch (key)
+        {
+            case "CROPSENTINEL_SERVER":
+            case "CROPPRO_SERVER":
+                settings["CropSentinelAgent:ApiBaseUrl"] = val;
+                if (val.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                {
+                    settings["CropSentinelAgent:WebSocketBaseUrl"] = "wss://" + val[8..];
+                }
+                else if (val.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+                {
+                    settings["CropSentinelAgent:WebSocketBaseUrl"] = "ws://" + val[7..];
+                }
+                break;
+
+            case "CROPSENTINEL_ENROLL_TOKEN":
+            case "CROPPRO_ENROLL_TOKEN":
+                settings["CropSentinelAgent:EnrollmentToken"] = val;
+                break;
+
+            case "CROPSENTINEL_AGENT_KEY":
+            case "CROPPRO_AGENT_KEY":
+                settings["CropSentinelAgent:AgentApiKey"] = val;
+                break;
+
+            case "CROPSENTINEL_SCREENSHOT_INTERVAL":
+            case "CROPPRO_SCREENSHOT_INTERVAL":
+                settings["CropSentinelAgent:ScreenshotIntervalSeconds"] = val;
+                break;
+
+            case "CROPSENTINEL_SYNC_INTERVAL":
+            case "CROPPRO_SYNC_INTERVAL":
+                settings["CropSentinelAgent:BrowserSyncIntervalSeconds"] = val;
+                break;
+        }
+    }
+
+    if (settings.Count > 0)
+    {
+        configuration.AddInMemoryCollection(settings!);
+    }
+}
