@@ -212,7 +212,7 @@ public sealed partial class WindowsInputActivityTracker : IInputActivityTracker
 
     private delegate nint HookProc(int code, nuint wParam, nint lParam);
 
-    [LibraryImport("user32.dll", SetLastError = true)]
+    [LibraryImport("user32.dll", EntryPoint = "SetWindowsHookExW", SetLastError = true)]
     private static partial nint SetWindowsHookEx(int idHook, HookProc lpfn, IntPtr hMod, uint dwThreadId);
 
     [LibraryImport("user32.dll", SetLastError = true)]
@@ -222,20 +222,20 @@ public sealed partial class WindowsInputActivityTracker : IInputActivityTracker
     [LibraryImport("user32.dll")]
     private static partial nint CallNextHookEx(IntPtr hhk, int nCode, nuint wParam, nint lParam);
 
-    [LibraryImport("user32.dll")]
+    [LibraryImport("user32.dll", EntryPoint = "GetMessageW")]
     private static partial sbyte GetMessage(out Msg lpMsg, IntPtr hWnd, uint wMsgFilterMin, uint wMsgFilterMax);
 
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static partial bool TranslateMessage(in Msg lpMsg);
 
-    [LibraryImport("user32.dll")]
+    [LibraryImport("user32.dll", EntryPoint = "DispatchMessageW")]
     private static partial nint DispatchMessage(in Msg lpMsg);
 
     [LibraryImport("kernel32.dll")]
     private static partial uint GetCurrentThreadId();
 
-    [LibraryImport("user32.dll", SetLastError = true)]
+    [LibraryImport("user32.dll", EntryPoint = "PostThreadMessageW", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static partial bool PostThreadMessage(uint idThread, uint msg, UIntPtr wParam, IntPtr lParam);
 
