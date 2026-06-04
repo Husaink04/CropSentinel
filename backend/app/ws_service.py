@@ -1,4 +1,4 @@
-﻿"""Connection management and WebSocket event handling."""
+"""Connection management and WebSocket event handling."""
 
 import asyncio
 import logging
@@ -283,14 +283,36 @@ async def handle_agent_websocket(websocket: WebSocket, machine_id: str):
                             session_id,
                             {"type": "webrtc_offer", "tenant_id": resolved_tid, "session_id": session_id, "sdp": data.get("sdp")},
                         )
+                    elif redis_bus.enabled():
+                        await redis_bus.publish_webrtc_msg({
+                            "type": "webrtc_offer",
+                            "session_id": session_id,
+                            "tenant_id": resolved_tid,
+                            "sdp": data.get("sdp")
+                        })
                 elif msg_type == "webrtc_ice":
                     session_id = data.get("session_id", "")
-                    await webrtc.relay_to_admin(
-                        session_id,
-                        {"type": "webrtc_ice_agent", "tenant_id": resolved_tid, "session_id": session_id, "candidate": data.get("candidate")},
-                    )
+                    if webrtc.get_session(session_id):
+                        await webrtc.relay_to_admin(
+                            session_id,
+                            {"type": "webrtc_ice_agent", "tenant_id": resolved_tid, "session_id": session_id, "candidate": data.get("candidate")},
+                        )
+                    elif redis_bus.enabled():
+                        await redis_bus.publish_webrtc_msg({
+                            "type": "webrtc_ice",
+                            "session_id": session_id,
+                            "tenant_id": resolved_tid,
+                            "candidate": data.get("candidate")
+                        })
                 elif msg_type == "webrtc_end":
-                    await webrtc.notify_admin_ended(data.get("session_id", ""), reason="agent_closed")
+                    session_id = data.get("session_id", "")
+                    if webrtc.get_session(session_id):
+                        await webrtc.notify_admin_ended(session_id, reason="agent_closed")
+                    elif redis_bus.enabled():
+                        await redis_bus.publish_webrtc_msg({
+                            "type": "webrtc_end",
+                            "session_id": session_id,
+                        })
                 elif msg_type == "input_activity":
                     result = activity_ingest_service.ingest_input(machine_id, data)
                     for event in result.broadcasts:
@@ -487,7 +509,25 @@ async def handle_admin_websocket(websocket: WebSocket, app):
                     await websocket.send_json(jsonable_encoder({"type": "webrtc_error", "message": "Machine is offline"}))
                     continue
                 session_id = webrtc.create_session(machine_id, websocket, session_kind=session_kind)
-                sent = await manager.send_to_agent(machine_id, {"type": "webrtc_offer_req", "session_id": session_id, "session_kind": session_kind})
+                
+                settings = db.get_settings()
+                turn_url = (settings.get("webrtc_turn_url") or os.environ.get("WEBRTC_TURN_URL", "")).strip()
+                turn_user = (settings.get("webrtc_turn_username") or os.environ.get("WEBRTC_TURN_USER", "")).strip()
+                turn_pass = settings.get("webrtc_turn_password") or os.environ.get("WEBRTC_TURN_PASS", "")
+
+                agent_payload = {
+                    "type": "webrtc_offer_req",
+                    "session_id": session_id,
+                    "session_kind": session_kind,
+                }
+                if turn_url:
+                    agent_payload["turn_url"] = turn_url
+                    if turn_user:
+                        agent_payload["turn_username"] = turn_user
+                    if turn_pass:
+                        agent_payload["turn_password"] = turn_pass
+
+                sent = await manager.send_to_agent(machine_id, agent_payload)
                 if not sent:
                     await websocket.send_json(jsonable_encoder({"type": "webrtc_error", "message": "Failed to reach agent", "session_id": session_id}))
                     webrtc.end_session(session_id)

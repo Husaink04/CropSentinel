@@ -30,6 +30,7 @@ REDIS_URL = os.environ.get("REDIS_URL", "").strip()
 # Channel / key names
 CH_BROADCAST    = "croppro:events"
 CH_AGENT_PREFIX = "croppro:agent:"
+CH_WEBRTC       = "croppro:webrtc"
 KEY_ONLINE      = "croppro:online"
 
 # Two separate connections: Redis pub/sub protocol requires the subscriber
@@ -93,6 +94,17 @@ async def publish_agent_cmd(machine_id: str, data: dict) -> None:
         logger.warning("Redis publish_agent_cmd failed for %s: %s", machine_id, exc)
 
 
+async def publish_webrtc_msg(data: dict) -> None:
+    """Publish a WebRTC signalling message to all backend instances."""
+    if not enabled():
+        return
+    try:
+        r = await _pub()
+        await r.publish(CH_WEBRTC, json.dumps(data, default=str))
+    except Exception as exc:
+        logger.warning("Redis publish_webrtc_msg failed: %s", exc)
+
+
 # ── Online machine set ─────────────────────────────────────────────────────────
 
 async def mark_online(machine_id: str) -> None:
@@ -142,11 +154,13 @@ async def get_online_set() -> set:
 async def subscribe_loop(
     on_broadcast: Callable[[dict], Awaitable[None]],
     on_agent_cmd: Callable[[str, dict], Awaitable[None]],
+    on_webrtc: Callable[[dict], Awaitable[None]],
 ) -> None:
     """
     Long-running coroutine — call from an asyncio.create_task in lifespan.
     Subscribes to Redis channels and dispatches incoming messages:
       - CH_BROADCAST messages   → on_broadcast(data)
+      - CH_WEBRTC messages      → on_webrtc(data)
       - CH_AGENT_PREFIX* messages → on_agent_cmd(machine_id, data)
     Reconnects automatically after any disconnection.
     """
@@ -161,7 +175,7 @@ async def subscribe_loop(
         try:
             r = await _sub()
             pubsub = r.pubsub(ignore_subscribe_messages=True)
-            await pubsub.subscribe(CH_BROADCAST)
+            await pubsub.subscribe(CH_BROADCAST, CH_WEBRTC)
             await pubsub.psubscribe(f"{CH_AGENT_PREFIX}*")
             logger.info("Redis subscriber connected — listening for events")
 
@@ -172,6 +186,8 @@ async def subscribe_loop(
                     mtype = msg.get("type", "")
                     if mtype == "message" and msg.get("channel") == CH_BROADCAST:
                         await on_broadcast(json.loads(msg["data"]))
+                    elif mtype == "message" and msg.get("channel") == CH_WEBRTC:
+                        await on_webrtc(json.loads(msg["data"]))
                     elif mtype == "pmessage":
                         ch: str = msg.get("channel", "")
                         if ch.startswith(CH_AGENT_PREFIX):

@@ -17,7 +17,10 @@ public sealed class BackendClient
         _options = options.Value;
         _logger = logger;
         _httpClient.BaseAddress = new Uri(NormalizeBaseUrl(_options.ApiBaseUrl));
-        _httpClient.DefaultRequestHeaders.Add("X-CropPro-Agent-Key", _options.AgentApiKey);
+        if (!string.IsNullOrWhiteSpace(_options.AgentApiKey))
+        {
+            _httpClient.DefaultRequestHeaders.Add("X-CropPro-Agent-Key", _options.AgentApiKey);
+        }
         if (!string.IsNullOrWhiteSpace(_options.EnrollmentToken))
         {
             _httpClient.DefaultRequestHeaders.Add("X-CropSentinel-Enroll-Token", _options.EnrollmentToken);
@@ -163,7 +166,10 @@ public sealed class BackendClient
     public async Task<ClientWebSocket> ConnectWebSocketAsync(string machineId, CancellationToken cancellationToken)
     {
         var ws = new ClientWebSocket();
-        ws.Options.SetRequestHeader("X-CropPro-Agent-Key", _options.AgentApiKey);
+        if (!string.IsNullOrWhiteSpace(_options.AgentApiKey))
+        {
+            ws.Options.SetRequestHeader("X-CropPro-Agent-Key", _options.AgentApiKey);
+        }
         if (!string.IsNullOrWhiteSpace(_options.EnrollmentToken))
         {
             ws.Options.SetRequestHeader("X-CropSentinel-Enroll-Token", _options.EnrollmentToken);

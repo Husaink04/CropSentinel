@@ -143,7 +143,7 @@ def load_payload_manifest() -> dict[str, object]:
         manifest_path = resource_path(PAYLOAD_MANIFEST)
     if not manifest_path.exists():
         raise FileNotFoundError(f"Missing bundled payload manifest: {manifest_path}")
-    return json.loads(manifest_path.read_text(encoding="utf-8"))
+    return json.loads(manifest_path.read_text(encoding="utf-8-sig"))
 
 
 def verify_bundled_payload() -> dict[str, object]:
@@ -431,6 +431,61 @@ def apply_locked_acl(path: Path) -> None:
 def harden_windows_paths() -> None:
     for path in (INSTALL_DIR, PROGRAM_DATA):
         apply_locked_acl(path)
+    
+    # Grant Read/Execute access to INSTALL_DIR for local Users group (SID S-1-5-32-545)
+    # so they can execute cropsentinel-agent-native.exe when launched in their user session.
+    _run(
+        [
+            "icacls.exe",
+            str(INSTALL_DIR),
+            "/grant",
+            "*S-1-5-32-545:RX",
+            "/t",
+            "/c",
+        ],
+        check=False,
+    )
+
+    # Create the NativeAgent folder and grant Modify access to local Users group (SID S-1-5-32-545)
+    native_agent_dir = PROGRAM_DATA / "NativeAgent"
+    native_agent_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Apply inheritance permissions on the folder
+    _run(
+        [
+            "icacls.exe",
+            str(native_agent_dir),
+            "/grant",
+            "*S-1-5-32-545:(OI)(CI)M",
+            "/c",
+        ],
+        check=False,
+    )
+    
+    # Apply Modify permissions recursively to all existing files
+    _run(
+        [
+            "icacls.exe",
+            str(native_agent_dir),
+            "/grant",
+            "*S-1-5-32-545:M",
+            "/t",
+            "/c",
+        ],
+        check=False,
+    )
+
+    # Grant Read access to config.env for local Users group (SID S-1-5-32-545)
+    _run(
+        [
+            "icacls.exe",
+            str(CONFIG_PATH),
+            "/grant",
+            "*S-1-5-32-545:R",
+            "/c",
+        ],
+        check=False,
+    )
 
 
 def ensure_services() -> None:
@@ -490,7 +545,7 @@ def read_payload(path: str | None) -> dict[str, str]:
     payload_path = Path(path)
     if payload_path.exists():
         try:
-            return json.loads(payload_path.read_text(encoding="utf-8"))
+            return json.loads(payload_path.read_text(encoding="utf-8-sig"))
         except Exception:
             return load_sidecar_config()
     return load_sidecar_config()

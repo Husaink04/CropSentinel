@@ -108,35 +108,50 @@ static void LoadConfigEnv(ConfigurationManager configuration)
         {
             case "CROPSENTINEL_SERVER":
             case "CROPPRO_SERVER":
-                settings["CropSentinelAgent:ApiBaseUrl"] = val;
-                if (val.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                if (!string.IsNullOrWhiteSpace(val))
                 {
-                    settings["CropSentinelAgent:WebSocketBaseUrl"] = "wss://" + val[8..];
-                }
-                else if (val.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
-                {
-                    settings["CropSentinelAgent:WebSocketBaseUrl"] = "ws://" + val[7..];
+                    settings["CropSentinelAgent:ApiBaseUrl"] = val;
+                    if (val.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                    {
+                        settings["CropSentinelAgent:WebSocketBaseUrl"] = "wss://" + val[8..];
+                    }
+                    else if (val.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+                    {
+                        settings["CropSentinelAgent:WebSocketBaseUrl"] = "ws://" + val[7..];
+                    }
                 }
                 break;
 
             case "CROPSENTINEL_ENROLL_TOKEN":
             case "CROPPRO_ENROLL_TOKEN":
-                settings["CropSentinelAgent:EnrollmentToken"] = val;
+                if (!string.IsNullOrWhiteSpace(val))
+                {
+                    settings["CropSentinelAgent:EnrollmentToken"] = val;
+                }
                 break;
 
             case "CROPSENTINEL_AGENT_KEY":
             case "CROPPRO_AGENT_KEY":
-                settings["CropSentinelAgent:AgentApiKey"] = val;
+                if (!string.IsNullOrWhiteSpace(val))
+                {
+                    settings["CropSentinelAgent:AgentApiKey"] = val;
+                }
                 break;
 
             case "CROPSENTINEL_SCREENSHOT_INTERVAL":
             case "CROPPRO_SCREENSHOT_INTERVAL":
-                settings["CropSentinelAgent:ScreenshotIntervalSeconds"] = val;
+                if (!string.IsNullOrWhiteSpace(val))
+                {
+                    settings["CropSentinelAgent:ScreenshotIntervalSeconds"] = val;
+                }
                 break;
 
             case "CROPSENTINEL_SYNC_INTERVAL":
             case "CROPPRO_SYNC_INTERVAL":
-                settings["CropSentinelAgent:BrowserSyncIntervalSeconds"] = val;
+                if (!string.IsNullOrWhiteSpace(val))
+                {
+                    settings["CropSentinelAgent:BrowserSyncIntervalSeconds"] = val;
+                }
                 break;
         }
     }

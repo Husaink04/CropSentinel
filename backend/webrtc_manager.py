@@ -131,6 +131,37 @@ class WebRTCSignallingManager:
     def active_for_machine(self, machine_id: str) -> int:
         return len(self._machine_sessions.get(machine_id, []))
 
+    async def handle_webrtc_relay(self, payload: dict):
+        msg_type = payload.get("type")
+        session_id = payload.get("session_id", "")
+        sess = self.get_session(session_id)
+        if not sess:
+            return
+
+        if msg_type == "webrtc_offer":
+            await self.relay_to_admin(
+                session_id,
+                {
+                    "type": "webrtc_offer",
+                    "tenant_id": payload.get("tenant_id"),
+                    "session_id": session_id,
+                    "sdp": payload.get("sdp"),
+                },
+            )
+        elif msg_type == "webrtc_ice":
+            await self.relay_to_admin(
+                session_id,
+                {
+                    "type": "webrtc_ice_agent",
+                    "tenant_id": payload.get("tenant_id"),
+                    "session_id": session_id,
+                    "candidate": payload.get("candidate"),
+                },
+            )
+        elif msg_type == "webrtc_end":
+            await self.notify_admin_ended(session_id, reason="agent_closed")
+
+
 
 # Singleton
 webrtc = WebRTCSignallingManager()

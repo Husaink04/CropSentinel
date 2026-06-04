@@ -133,6 +133,21 @@ function Clean-PreviousArtifacts {
             }
         }
     }
+    Get-Process | Where-Object { $_.Name -like "cropsentinel-agent-*-setup" } | ForEach-Object {
+        try {
+            Stop-Process -Id $_.Id -Force -ErrorAction Stop
+            Write-Host "Stopped setup process $($_.ProcessName) (PID $($_.Id))" -ForegroundColor DarkYellow
+        } catch {
+            Write-Host "Could not stop setup process $($_.ProcessName) (PID $($_.Id)) normally: $($_.Exception.Message)" -ForegroundColor DarkYellow
+            Write-Host "Attempting elevated taskkill..." -ForegroundColor DarkYellow
+            try {
+                Start-Process taskkill -ArgumentList "/F /PID $($_.Id)" -Verb RunAs -WindowStyle Hidden -Wait
+                Write-Host "Elevated taskkill command executed for PID $($_.Id)" -ForegroundColor DarkYellow
+            } catch {
+                Write-Host "Failed to launch elevated taskkill for PID $($_.Id): $($_.Exception.Message)" -ForegroundColor Red
+            }
+        }
+    }
     Remove-Item -Recurse -Force -ErrorAction SilentlyContinue `
         dist, build, `
         cropsentinel-agent-*.exe, cropsentinel-agent-*.zip

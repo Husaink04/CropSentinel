@@ -40,7 +40,14 @@ public sealed class NativeWebRtcSessionManager : IAsyncDisposable
         _logger = logger;
     }
 
-    public async Task HandleOfferRequestAsync(string sessionId, string sessionKind, Func<string, CancellationToken, Task> sendAsync, CancellationToken cancellationToken)
+    public async Task HandleOfferRequestAsync(
+        string sessionId,
+        string sessionKind,
+        string turnUrl,
+        string turnUsername,
+        string turnPassword,
+        Func<string, CancellationToken, Task> sendAsync,
+        CancellationToken cancellationToken)
     {
         var session = new LiveWebRtcSession(
             sessionId,
@@ -49,6 +56,9 @@ public sealed class NativeWebRtcSessionManager : IAsyncDisposable
             _remoteInputExecutor,
             _fileTransferHandler,
             _options,
+            turnUrl,
+            turnUsername,
+            turnPassword,
             sendAsync,
             _logger);
         if (!_sessions.TryAdd(sessionId, session))
@@ -129,7 +139,7 @@ public sealed class NativeWebRtcSessionManager : IAsyncDisposable
         private readonly Func<string, CancellationToken, Task> _sendAsync;
         private readonly ILogger _logger;
         private readonly CancellationTokenSource _stopCts = new();
-        private readonly VideoTestPatternSource _videoSource;
+        private readonly ScreenVideoSource _videoSource;
         private readonly RTCPeerConnection _peerConnection;
         private Task? _framePumpTask;
         private RTCDataChannel? _inputChannel;
@@ -143,6 +153,9 @@ public sealed class NativeWebRtcSessionManager : IAsyncDisposable
             NativeRemoteInputExecutor remoteInputExecutor,
             NativeFileTransferHandler fileTransferHandler,
             AgentOptions options,
+            string turnUrl,
+            string turnUsername,
+            string turnPassword,
             Func<string, CancellationToken, Task> sendAsync,
             ILogger logger)
         {
@@ -157,11 +170,11 @@ public sealed class NativeWebRtcSessionManager : IAsyncDisposable
 
             var config = new RTCConfiguration
             {
-                iceServers = BuildIceServers(options),
+                iceServers = BuildIceServers(options, turnUrl, turnUsername, turnPassword),
             };
 
             _peerConnection = new RTCPeerConnection(config);
-            _videoSource = new VideoTestPatternSource(new VpxVideoEncoder());
+            _videoSource = new ScreenVideoSource(new VpxVideoEncoder());
         }
 
         public async Task StartAsync(CancellationToken cancellationToken)
@@ -351,16 +364,20 @@ public sealed class NativeWebRtcSessionManager : IAsyncDisposable
             };
         }
 
-        private static List<RTCIceServer> BuildIceServers(AgentOptions options)
+        private static List<RTCIceServer> BuildIceServers(AgentOptions options, string turnUrl, string turnUsername, string turnPassword)
         {
             var servers = new List<RTCIceServer>(DefaultIceServers);
-            if (!string.IsNullOrWhiteSpace(options.WebRtcTurnUrl))
+            var url = !string.IsNullOrWhiteSpace(turnUrl) ? turnUrl : options.WebRtcTurnUrl;
+            var user = !string.IsNullOrWhiteSpace(turnUrl) ? turnUsername : options.WebRtcTurnUsername;
+            var cred = !string.IsNullOrWhiteSpace(turnUrl) ? turnPassword : options.WebRtcTurnPassword;
+
+            if (!string.IsNullOrWhiteSpace(url))
             {
                 servers.Add(new RTCIceServer
                 {
-                    urls = options.WebRtcTurnUrl,
-                    username = options.WebRtcTurnUsername,
-                    credential = options.WebRtcTurnPassword,
+                    urls = url,
+                    username = user ?? "",
+                    credential = cred ?? "",
                 });
             }
 

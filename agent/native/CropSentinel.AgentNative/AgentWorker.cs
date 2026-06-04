@@ -839,116 +839,147 @@ public sealed partial class AgentWorker : BackgroundService
 
     private async Task RunWebSocketLoopAsync(string machineId, CancellationToken cancellationToken)
     {
-        try
+        while (!cancellationToken.IsCancellationRequested)
         {
-            using var socket = await _backendClient.ConnectWebSocketAsync(machineId, cancellationToken);
-            if (socket.State != WebSocketState.Open)
+            try
             {
-                return;
-            }
-
-            var buffer = new byte[64 * 1024];
-            while (!cancellationToken.IsCancellationRequested && socket.State == WebSocketState.Open)
-            {
-                var result = await socket.ReceiveAsync(buffer.AsMemory(), cancellationToken);
-                if (result.MessageType == WebSocketMessageType.Close)
+                _logger.LogInformation("Connecting agent websocket...");
+                using var socket = await _backendClient.ConnectWebSocketAsync(machineId, cancellationToken);
+                if (socket.State != WebSocketState.Open)
                 {
-                    break;
-                }
-
-                var count = result.Count;
-                while (!result.EndOfMessage)
-                {
-                    if (count >= buffer.Length)
-                    {
-                        break;
-                    }
-                    result = await socket.ReceiveAsync(buffer.AsMemory(count), cancellationToken);
-                    count += result.Count;
-                }
-
-                if (result.MessageType != WebSocketMessageType.Text || count == 0)
-                {
+                    _logger.LogWarning("Agent websocket state is {State}, retrying in 5 seconds...", socket.State);
+                    await Task.Delay(5000, cancellationToken);
                     continue;
                 }
 
-                var message = Encoding.UTF8.GetString(buffer, 0, count);
-                using var document = JsonDocument.Parse(message);
-                var root = document.RootElement;
-                var msgType = root.TryGetProperty("type", out var typeProperty) ? typeProperty.GetString() ?? "" : "";
-                if (string.Equals(msgType, "take_screenshot", StringComparison.OrdinalIgnoreCase))
+                _logger.LogInformation("Agent websocket connection established successfully.");
+                var buffer = new byte[64 * 1024];
+                while (!cancellationToken.IsCancellationRequested && socket.State == WebSocketState.Open)
                 {
-                    await SendScreenshotAsync(machineId, "manual", cancellationToken);
-                }
-                else if (string.Equals(msgType, "webrtc_offer_req", StringComparison.OrdinalIgnoreCase))
-                {
-                    var sessionId = root.TryGetProperty("session_id", out var sessionProperty) ? sessionProperty.GetString() ?? "" : "";
-                    var sessionKind = root.TryGetProperty("session_kind", out var sessionKindProperty) ? sessionKindProperty.GetString() ?? "live" : "live";
-                    if (!string.IsNullOrWhiteSpace(sessionId))
+                    var result = await socket.ReceiveAsync(buffer.AsMemory(), cancellationToken);
+                    if (result.MessageType == WebSocketMessageType.Close)
                     {
-                        await _webRtcSessionManager.HandleOfferRequestAsync(
-                            sessionId,
-                            sessionKind,
-                            (payload, token) => SendWebSocketTextAsync(socket, payload, token),
-                            cancellationToken);
+                        _logger.LogWarning("Agent websocket received Close message.");
+                        break;
                     }
-                }
-                else if (string.Equals(msgType, "webrtc_answer", StringComparison.OrdinalIgnoreCase))
-                {
-                    var sessionId = root.TryGetProperty("session_id", out var sessionProperty) ? sessionProperty.GetString() ?? "" : "";
-                    if (!string.IsNullOrWhiteSpace(sessionId)
-                        && root.TryGetProperty("sdp", out var sdpProperty))
+
+                    var count = result.Count;
+                    while (!result.EndOfMessage)
                     {
-                        var payload = JsonSerializer.Deserialize(
-                            sdpProperty.GetRawText(),
-                            AgentJsonSerializerContext.Default.WebRtcSessionDescriptionPayload);
-                        if (payload is not null)
+                        if (count >= buffer.Length)
                         {
-                            await _webRtcSessionManager.HandleAnswerAsync(sessionId, payload, cancellationToken);
+                            break;
+                        }
+                        var chunk = await socket.ReceiveAsync(buffer.AsMemory(count), cancellationToken);
+                        count += chunk.Count;
+                        if (chunk.MessageType == WebSocketMessageType.Close)
+                        {
+                            break;
                         }
                     }
-                }
-                else if (string.Equals(msgType, "webrtc_ice", StringComparison.OrdinalIgnoreCase))
-                {
-                    var sessionId = root.TryGetProperty("session_id", out var sessionProperty) ? sessionProperty.GetString() ?? "" : "";
-                    if (!string.IsNullOrWhiteSpace(sessionId)
-                        && root.TryGetProperty("candidate", out var candidateProperty))
+
+                    if (result.MessageType != WebSocketMessageType.Text || count == 0)
                     {
-                        var payload = JsonSerializer.Deserialize(
-                            candidateProperty.GetRawText(),
-                            AgentJsonSerializerContext.Default.WebRtcIceCandidatePayload);
-                        if (payload is not null)
+                        continue;
+                    }
+
+                    var message = Encoding.UTF8.GetString(buffer, 0, count);
+                    using var document = JsonDocument.Parse(message);
+                    var root = document.RootElement;
+                    var msgType = root.TryGetProperty("type", out var typeProperty) ? typeProperty.GetString() ?? "" : "";
+                    
+                    _logger.LogDebug("Agent websocket received message type: {MsgType}", msgType);
+
+                    if (string.Equals(msgType, "take_screenshot", StringComparison.OrdinalIgnoreCase))
+                    {
+                        await SendScreenshotAsync(machineId, "manual", cancellationToken);
+                    }
+                    else if (string.Equals(msgType, "webrtc_offer_req", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var sessionId = root.TryGetProperty("session_id", out var sessionProperty) ? sessionProperty.GetString() ?? "" : "";
+                        var sessionKind = root.TryGetProperty("session_kind", out var sessionKindProperty) ? sessionKindProperty.GetString() ?? "live" : "live";
+                        var turnUrl = root.TryGetProperty("turn_url", out var turnUrlProperty) ? turnUrlProperty.GetString() ?? "" : "";
+                        var turnUsername = root.TryGetProperty("turn_username", out var turnUserProperty) ? turnUserProperty.GetString() ?? "" : "";
+                        var turnPassword = root.TryGetProperty("turn_password", out var turnPassProperty) ? turnPassProperty.GetString() ?? "" : "";
+
+                        if (!string.IsNullOrWhiteSpace(sessionId))
                         {
-                            await _webRtcSessionManager.HandleIceAsync(sessionId, payload, cancellationToken);
+                            _logger.LogInformation("Received WebRTC offer request for session {SessionId} ({SessionKind})", sessionId, sessionKind);
+                            await _webRtcSessionManager.HandleOfferRequestAsync(
+                                sessionId,
+                                sessionKind,
+                                turnUrl,
+                                turnUsername,
+                                turnPassword,
+                                (payload, token) => SendWebSocketTextAsync(socket, payload, token),
+                                cancellationToken);
                         }
                     }
-                }
-                else if (string.Equals(msgType, "webrtc_end", StringComparison.OrdinalIgnoreCase))
-                {
-                    var sessionId = root.TryGetProperty("session_id", out var sessionProperty) ? sessionProperty.GetString() ?? "" : "";
-                    if (!string.IsNullOrWhiteSpace(sessionId))
+                    else if (string.Equals(msgType, "webrtc_answer", StringComparison.OrdinalIgnoreCase))
                     {
-                        await _webRtcSessionManager.HandleEndAsync(sessionId);
+                        var sessionId = root.TryGetProperty("session_id", out var sessionProperty) ? sessionProperty.GetString() ?? "" : "";
+                        if (!string.IsNullOrWhiteSpace(sessionId)
+                            && root.TryGetProperty("sdp", out var sdpProperty))
+                        {
+                            var payload = JsonSerializer.Deserialize(
+                                sdpProperty.GetRawText(),
+                                AgentJsonSerializerContext.Default.WebRtcSessionDescriptionPayload);
+                            if (payload is not null)
+                            {
+                                _logger.LogInformation("Received WebRTC answer for session {SessionId}", sessionId);
+                                await _webRtcSessionManager.HandleAnswerAsync(sessionId, payload, cancellationToken);
+                            }
+                        }
                     }
-                }
-                else if (string.Equals(msgType, "remote_command", StringComparison.OrdinalIgnoreCase))
-                {
-                    var action = root.TryGetProperty("action", out var actionProperty) ? actionProperty.GetString() ?? "" : "";
-                    var value = root.TryGetProperty("value", out var valueProperty) ? valueProperty.GetString() ?? "" : "";
-                    var resultPayload = _remoteCommandExecutor.Execute(action, value);
-                    var response = JsonSerializer.Serialize(new RemoteCommandResultSignal
+                    else if (string.Equals(msgType, "webrtc_ice", StringComparison.OrdinalIgnoreCase))
                     {
-                        Action = resultPayload.Action,
-                        Status = resultPayload.Status,
-                        Detail = resultPayload.Detail,
-                    }, AgentJsonSerializerContext.Default.RemoteCommandResultSignal);
-                    await SendWebSocketTextAsync(socket, response, cancellationToken);
+                        var sessionId = root.TryGetProperty("session_id", out var sessionProperty) ? sessionProperty.GetString() ?? "" : "";
+                        if (!string.IsNullOrWhiteSpace(sessionId)
+                            && root.TryGetProperty("candidate", out var candidateProperty))
+                        {
+                            var payload = JsonSerializer.Deserialize(
+                                candidateProperty.GetRawText(),
+                                AgentJsonSerializerContext.Default.WebRtcIceCandidatePayload);
+                            if (payload is not null)
+                            {
+                                _logger.LogDebug("Received WebRTC ICE candidate for session {SessionId}", sessionId);
+                                await _webRtcSessionManager.HandleIceAsync(sessionId, payload, cancellationToken);
+                            }
+                        }
+                    }
+                    else if (string.Equals(msgType, "webrtc_end", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var sessionId = root.TryGetProperty("session_id", out var sessionProperty) ? sessionProperty.GetString() ?? "" : "";
+                        if (!string.IsNullOrWhiteSpace(sessionId))
+                        {
+                            _logger.LogInformation("Received WebRTC end for session {SessionId}", sessionId);
+                            await _webRtcSessionManager.HandleEndAsync(sessionId);
+                        }
+                    }
+                    else if (string.Equals(msgType, "remote_command", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var action = root.TryGetProperty("action", out var actionProperty) ? actionProperty.GetString() ?? "" : "";
+                        var value = root.TryGetProperty("value", out var valueProperty) ? valueProperty.GetString() ?? "" : "";
+                        var resultPayload = _remoteCommandExecutor.Execute(action, value);
+                        var response = JsonSerializer.Serialize(new RemoteCommandResultSignal
+                        {
+                            Action = resultPayload.Action,
+                            Status = resultPayload.Status,
+                            Detail = resultPayload.Detail,
+                        }, AgentJsonSerializerContext.Default.RemoteCommandResultSignal);
+                        await SendWebSocketTextAsync(socket, response, cancellationToken);
+                    }
                 }
             }
-        }
-        catch (Exception ex) when (ex is WebSocketException or InvalidOperationException or HttpRequestException)
-        {
-            _logger.LogWarning(ex, "Agent websocket connection failed. HTTP transport remains active.");
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex, "Agent websocket connection error or disconnected. Retrying in 5 seconds...");
+            }
+
+            if (!cancellationToken.IsCancellationRequested)
+            {
+                await Task.Delay(5000, cancellationToken);
+            }
         }
     }
 
@@ -958,11 +989,11 @@ public sealed partial class AgentWorker : BackgroundService
         return socket.SendAsync(bytes, WebSocketMessageType.Text, true, cancellationToken);
     }
 
-    private static void ValidateOptions(AgentOptions options)
+    private void ValidateOptions(AgentOptions options)
     {
-        if (string.IsNullOrWhiteSpace(options.AgentApiKey))
+        if (string.IsNullOrWhiteSpace(options.AgentApiKey) && string.IsNullOrWhiteSpace(options.EnrollmentToken))
         {
-            throw new InvalidOperationException("CropSentinelAgent:AgentApiKey must be set.");
+            _logger.LogWarning("Neither CropSentinelAgent:AgentApiKey nor CropSentinelAgent:EnrollmentToken is configured. The agent will attempt to register as a-single tenant development client, but this will fail in multi-tenant production environments.");
         }
     }
 

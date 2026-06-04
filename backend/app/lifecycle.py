@@ -25,6 +25,7 @@ from app.service_roles import (
     runs_startup_seeding,
 )
 from app.ws_service import manager
+from webrtc_manager import webrtc
 
 logger = logging.getLogger("croppro")
 
@@ -223,6 +224,7 @@ async def lifespan(app):
             redis_bus.subscribe_loop(
                 on_broadcast=manager._local_broadcast,
                 on_agent_cmd=manager._local_deliver_to_agent,
+                on_webrtc=webrtc.handle_webrtc_relay,
             )
         )
     if enables_event_workers(service_role):
