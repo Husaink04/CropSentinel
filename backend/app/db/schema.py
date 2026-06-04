@@ -1043,7 +1043,11 @@ def _migrate_partitioned_table(cur, logger, table_name: str) -> None:
     cur.execute(f"ALTER TABLE {table_name} RENAME TO {legacy_name}")
     _create_partitioned_parent(cur, table_name)
     cur.execute(f"SELECT DISTINCT date_trunc('month', timestamp) AS month_start FROM {legacy_name} ORDER BY month_start ASC")
-    months = [row["month_start"] for row in cur.fetchall() if row.get("month_start")]
+    months = []
+    for row in cur.fetchall():
+        dt = row.get("month_start")
+        if dt:
+            months.append(datetime(dt.year, dt.month, 1, tzinfo=timezone.utc))
     if not months:
         months = [datetime.now(timezone.utc)]
     for month_start in months:
