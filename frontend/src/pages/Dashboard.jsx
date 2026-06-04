@@ -1667,7 +1667,7 @@ export default function Dashboard() {
           return (
             <div
               key={machine.machine_id}
-              onClick={() => setSelectedMachineId(machine.machine_id)}
+              onClick={() => navigate(`/machines/${machine.machine_id}`)}
               style={{
                 cursor: 'pointer',
                 padding: '16px 20px',
