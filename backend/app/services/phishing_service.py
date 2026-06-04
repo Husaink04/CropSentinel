@@ -560,13 +560,13 @@ class PhishingService:
     def _max_severity(self, current: str, incoming: str) -> str:
         return incoming if SEVERITY_RANK.get(incoming, 0) >= SEVERITY_RANK.get(current, 0) else current
 
-    def list_incidents(self, tenant_id: int, state: str = "", severity: str = "", assignee: str = "", limit: int = 50, offset: int = 0) -> dict:
+    def list_incidents(self, tenant_id: int, state: str = "", severity: str = "", assignee: str = "", machine_id: str = "", limit: int = 50, offset: int = 0) -> dict:
         items = []
-        for row in db.list_phishing_incidents(tenant_id=tenant_id, state=state, severity=severity, assignee=assignee, limit=limit, offset=offset):
+        for row in db.list_phishing_incidents(tenant_id=tenant_id, state=state, severity=severity, assignee=assignee, machine_id=machine_id, limit=limit, offset=offset):
             item = dict(row)
             item["metadata"] = _json_loads(item.get("metadata"), {})
             items.append(item)
-        return {"items": items, "total": db.count_phishing_incidents(tenant_id=tenant_id, state=state, severity=severity, assignee=assignee)}
+        return {"items": items, "total": db.count_phishing_incidents(tenant_id=tenant_id, state=state, severity=severity, assignee=assignee, machine_id=machine_id)}
 
     def incident_stats(self, tenant_id: int) -> dict:
         items = db.list_phishing_incidents(tenant_id=tenant_id, limit=200, offset=0)

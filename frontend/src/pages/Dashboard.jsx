@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApi, useAuth, useWsListener } from '../hooks/useAuth'
 import {
@@ -1542,38 +1542,6 @@ export default function Dashboard() {
           </div>
         </div>
         <div className="page-actions">
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            padding: '8px 12px',
-            background: 'color-mix(in srgb, var(--bg-2) 94%, transparent)',
-            border: '1px solid color-mix(in srgb, var(--machine-calm-1) 18%, var(--border))',
-            borderRadius: 14,
-          }}>
-            <span style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 600 }}>Scope</span>
-            <select
-              value={selectedMachineId}
-              onChange={e => setSelectedMachineId(e.target.value)}
-              style={{
-                border: 'none',
-                outline: 'none',
-                background: 'transparent',
-                color: 'var(--text-1)',
-                fontFamily: 'Inter, system-ui, sans-serif',
-                fontSize: 13,
-                minWidth: 180,
-              }}
-            >
-              {headerMachineOptions.map(machine => (
-                <option key={machine.machine_id} value={machine.machine_id}>
-                  {machine.machine_id === 'all'
-                    ? 'All machines'
-                    : `${machine.hostname}${machine.username ? ` · ${machine.username}` : ''}`}
-                </option>
-              ))}
-            </select>
-          </div>
           <button className="btn btn-outline btn-sm machine-calm-btn" onClick={openWidgetEditor}>Customize</button>
         </div>
       </div>
@@ -1623,14 +1591,192 @@ export default function Dashboard() {
           gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
         }}
       >
-        {visibleStatWidgets.length ? visibleStatWidgets.map(widget => (
-          <div key={widget.id}>{widget.render()}</div>
-        )) : (
-          <div className="empty-state" style={{ gridColumn: '1 / -1', margin: 0 }}>
-            <div className="empty-state-title">No KPI cards selected</div>
-            <div className="empty-state-sub">Open Customize to add cards back to the overview.</div>
+      <div
+        className="stagger"
+        style={{
+          marginBottom: 20,
+          display: 'grid',
+          gap: 16,
+          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+        }}
+      >
+        {/* All Machines Card */}
+        <div
+          onClick={() => setSelectedMachineId('all')}
+          style={{
+            cursor: 'pointer',
+            padding: '16px 20px',
+            borderRadius: 16,
+            background: selectedMachineId === 'all'
+              ? 'color-mix(in srgb, var(--machine-calm-1) 12%, var(--bg-2))'
+              : 'var(--bg-2)',
+            border: `2px solid ${selectedMachineId === 'all' ? 'var(--machine-calm-1)' : 'var(--border-0)'}`,
+            boxShadow: selectedMachineId === 'all'
+              ? '0 8px 30px rgba(59, 123, 248, 0.15)'
+              : 'var(--shadow-sm)',
+            transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+            position: 'relative',
+            overflow: 'hidden',
+          }}
+          className="machine-calm-card"
+          onMouseEnter={e => {
+            if (selectedMachineId !== 'all') {
+              e.currentTarget.style.transform = 'translateY(-2px)'
+              e.currentTarget.style.borderColor = 'color-mix(in srgb, var(--machine-calm-1) 50%, var(--border-0))'
+            }
+          }}
+          onMouseLeave={e => {
+            if (selectedMachineId !== 'all') {
+              e.currentTarget.style.transform = 'none'
+              e.currentTarget.style.borderColor = 'var(--border-0)'
+            }
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)' }}>All Machines</span>
+            <span style={{
+              width: 8, height: 8, borderRadius: '50%',
+              background: 'var(--machine-calm-1)',
+              boxShadow: '0 0 10px var(--machine-calm-1)',
+              animation: 'pulse 2s infinite'
+            }} />
           </div>
-        )}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 12px', fontSize: 12 }}>
+            <div>
+              <div style={{ color: 'var(--text-3)' }}>Total Fleet</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-1)' }}>{machines.length}</div>
+            </div>
+            <div>
+              <div style={{ color: 'var(--text-3)' }}>Online</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--success)' }}>{machines.filter(m => m.online).length}</div>
+            </div>
+            <div>
+              <div style={{ color: 'var(--text-3)' }}>Offline</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-3)' }}>{machines.filter(m => !m.online).length}</div>
+            </div>
+            <div>
+              <div style={{ color: 'var(--text-3)' }}>Combined Scope</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--brand)', marginTop: 4 }}>Fleet View</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Machine Cards */}
+        {machines.map(machine => {
+          const isSelected = selectedMachineId === machine.machine_id
+          return (
+            <div
+              key={machine.machine_id}
+              onClick={() => setSelectedMachineId(machine.machine_id)}
+              style={{
+                cursor: 'pointer',
+                padding: '16px 20px',
+                borderRadius: 16,
+                background: isSelected
+                  ? 'color-mix(in srgb, var(--machine-calm-1) 12%, var(--bg-2))'
+                  : 'var(--bg-2)',
+                border: `2px solid ${isSelected ? 'var(--machine-calm-1)' : 'var(--border-0)'}`,
+                boxShadow: isSelected
+                  ? '0 8px 30px rgba(59, 123, 248, 0.15)'
+                  : 'var(--shadow-sm)',
+                transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                position: 'relative',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+              }}
+              className="machine-calm-card"
+              onMouseEnter={e => {
+                if (!isSelected) {
+                  e.currentTarget.style.transform = 'translateY(-2px)'
+                  e.currentTarget.style.borderColor = 'color-mix(in srgb, var(--machine-calm-1) 50%, var(--border-0))'
+                }
+              }}
+              onMouseLeave={e => {
+                if (!isSelected) {
+                  e.currentTarget.style.transform = 'none'
+                  e.currentTarget.style.borderColor = 'var(--border-0)'
+                }
+              }}
+            >
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: 8 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)' }} className="mono">
+                      {machine.hostname}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>
+                      {machine.username || 'Unknown user'} · {machine.ip_address || 'No IP'}
+                    </div>
+                  </div>
+                  <span style={{
+                    width: 8, height: 8, borderRadius: '50%',
+                    background: machine.online ? 'var(--success)' : 'var(--text-3)',
+                    boxShadow: machine.online ? '0 0 10px var(--success)' : 'none',
+                    flexShrink: 0,
+                    marginTop: 4,
+                  }} />
+                </div>
+
+                <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 12 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <span>OS</span>
+                    <span style={{ color: 'var(--text-2)', fontWeight: 600 }}>{machine.os || 'Unknown OS'}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <span>Active App</span>
+                    <span style={{ color: 'var(--success)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160 }} title={machine.active_app}>
+                      {machine.active_app || '—'}
+                    </span>
+                  </div>
+                  {machine.online && (
+                    <div style={{ marginTop: 8 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 10 }}>
+                        <span>CPU Usage</span>
+                        <span className="mono">{Math.round(machine.cpu_percent || 0)}%</span>
+                      </div>
+                      <div style={{ height: 4, background: 'var(--border-0)', borderRadius: 2, overflow: 'hidden' }}>
+                        <div style={{
+                          width: `${Math.round(machine.cpu_percent || 0)}%`,
+                          height: '100%',
+                          background: 'var(--machine-calm-1)',
+                          borderRadius: 2,
+                          transition: 'width 0.3s ease',
+                        }} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 10, borderTop: '1px solid var(--border-0)', paddingTop: 10 }}>
+                <button
+                  onClick={e => {
+                    e.stopPropagation()
+                    navigate(`/machines/${machine.machine_id}`)
+                  }}
+                  className="btn btn-outline btn-sm machine-calm-btn"
+                  style={{ padding: '4px 10px', fontSize: 11, minHeight: 'auto' }}
+                >
+                  Details
+                </button>
+                {machine.online && (
+                  <button
+                    onClick={e => {
+                      e.stopPropagation()
+                      navigate(`/live?machine=${machine.machine_id}`)
+                    }}
+                    className="btn btn-primary btn-sm machine-calm-primary"
+                    style={{ padding: '4px 10px', fontSize: 11, minHeight: 'auto' }}
+                  >
+                    Live
+                  </button>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
       </div>
 
       {visibleChartWidgets.length > 0 && (

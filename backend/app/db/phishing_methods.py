@@ -272,27 +272,42 @@ class PhishingMethodsMixin:
                 )
                 return cur.rowcount > 0
 
-    def list_phishing_events(self, tenant_id: Optional[int] = None, limit: int = 50, offset: int = 0) -> list[dict]:
+    def list_phishing_events(self, tenant_id: Optional[int] = None, machine_id: str = "", limit: int = 50, offset: int = 0) -> list[dict]:
         tid = int(tenant_id or _tid())
         with _Conn() as conn:
             with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    SELECT *
-                    FROM phishing_events
-                    WHERE tenant_id = %s
-                    ORDER BY timestamp DESC
-                    LIMIT %s OFFSET %s
-                    """,
-                    (tid, limit, offset),
-                )
+                if machine_id:
+                    cur.execute(
+                        """
+                        SELECT *
+                        FROM phishing_events
+                        WHERE tenant_id = %s AND machine_id = %s
+                        ORDER BY timestamp DESC
+                        LIMIT %s OFFSET %s
+                        """,
+                        (tid, machine_id, limit, offset),
+                    )
+                else:
+                    cur.execute(
+                        """
+                        SELECT *
+                        FROM phishing_events
+                        WHERE tenant_id = %s
+                        ORDER BY timestamp DESC
+                        LIMIT %s OFFSET %s
+                        """,
+                        (tid, limit, offset),
+                    )
                 return [dict(r) for r in cur.fetchall()]
 
-    def count_phishing_events(self, tenant_id: Optional[int] = None) -> int:
+    def count_phishing_events(self, tenant_id: Optional[int] = None, machine_id: str = "") -> int:
         tid = int(tenant_id or _tid())
         with _Conn() as conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT COUNT(*) AS c FROM phishing_events WHERE tenant_id = %s", (tid,))
+                if machine_id:
+                    cur.execute("SELECT COUNT(*) AS c FROM phishing_events WHERE tenant_id = %s AND machine_id = %s", (tid, machine_id))
+                else:
+                    cur.execute("SELECT COUNT(*) AS c FROM phishing_events WHERE tenant_id = %s", (tid,))
                 return int(cur.fetchone()["c"])
 
     def create_phishing_incident(self, data: dict, tenant_id: Optional[int] = None) -> int:
@@ -381,6 +396,7 @@ class PhishingMethodsMixin:
         state: str = "",
         severity: str = "",
         assignee: str = "",
+        machine_id: str = "",
         limit: int = 50,
         offset: int = 0,
     ) -> list[dict]:
@@ -396,6 +412,9 @@ class PhishingMethodsMixin:
         if assignee:
             clauses.append("assignee = %s")
             params.append(assignee)
+        if machine_id:
+            clauses.append("machine_id = %s")
+            params.append(machine_id)
         with _Conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
@@ -410,7 +429,7 @@ class PhishingMethodsMixin:
                 )
                 return [dict(r) for r in cur.fetchall()]
 
-    def count_phishing_incidents(self, tenant_id: Optional[int] = None, state: str = "", severity: str = "", assignee: str = "") -> int:
+    def count_phishing_incidents(self, tenant_id: Optional[int] = None, state: str = "", severity: str = "", assignee: str = "", machine_id: str = "") -> int:
         tid = int(tenant_id or _tid())
         clauses = ["tenant_id = %s"]
         params = [tid]
@@ -423,6 +442,9 @@ class PhishingMethodsMixin:
         if assignee:
             clauses.append("assignee = %s")
             params.append(assignee)
+        if machine_id:
+            clauses.append("machine_id = %s")
+            params.append(machine_id)
         with _Conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(

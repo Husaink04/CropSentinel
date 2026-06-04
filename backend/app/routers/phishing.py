@@ -56,16 +56,16 @@ async def publish_phishing_policy(request: Request, policy_id: int, tenant=Depen
 
 
 @router.get("/api/phishing/events")
-async def list_phishing_events(limit: int = 50, offset: int = 0, tenant=Depends(get_current_tenant), user=Depends(require_permission("activity.view"))):
+async def list_phishing_events(machine_id: str = "", limit: int = 50, offset: int = 0, tenant=Depends(get_current_tenant), user=Depends(require_permission("activity.view"))):
     return {
-        "events": db.list_phishing_events(tenant_id=int(tenant["id"]), limit=max(1, min(limit, 200)), offset=max(0, offset)),
-        "total": db.count_phishing_events(tenant_id=int(tenant["id"])),
+        "events": db.list_phishing_events(tenant_id=int(tenant["id"]), machine_id=machine_id, limit=max(1, min(limit, 200)), offset=max(0, offset)),
+        "total": db.count_phishing_events(tenant_id=int(tenant["id"]), machine_id=machine_id),
     }
 
 
 @router.get("/api/phishing/incidents")
-async def list_phishing_incidents(state: str = "", severity: str = "", assignee: str = "", limit: int = 50, offset: int = 0, tenant=Depends(get_current_tenant), user=Depends(require_permission("activity.view"))):
-    payload = phishing_service.list_incidents(int(tenant["id"]), state=state, severity=severity, assignee=assignee, limit=limit, offset=offset)
+async def list_phishing_incidents(state: str = "", severity: str = "", assignee: str = "", machine_id: str = "", limit: int = 50, offset: int = 0, tenant=Depends(get_current_tenant), user=Depends(require_permission("activity.view"))):
+    payload = phishing_service.list_incidents(int(tenant["id"]), state=state, severity=severity, assignee=assignee, machine_id=machine_id, limit=limit, offset=offset)
     payload["stats"] = phishing_service.incident_stats(int(tenant["id"]))
     return payload
 
